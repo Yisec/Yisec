@@ -1,0 +1,22 @@
+import Component from './Component';
+import render from './render';
+import { autorun, observer, isObserve, addObserve, ObserveOptions } from './autorun';
+import register, { registerComponents } from "./register";
+import { addEventAlias } from "./eventAlias";
+import { addPipe } from "./execExpr";
+import forceUpdate from "./forceUpdate";
+declare const _default: {
+    Component: typeof Component;
+    render: (Com: typeof Component, props: any, dom: any, vdom?: any) => Component;
+    autorun: (fn: () => void, str?: string | undefined, callback?: any) => () => void;
+    observer: (obj: any, options?: ObserveOptions) => any;
+    isObserve: (obj: any) => any;
+    addObserve: (ctx: any, key: string, defaultValue?: any, options?: ObserveOptions) => void;
+    register: (name: string, Com: typeof Component) => void;
+    addEventAlias: (eventName: string, fn: any) => void;
+    registerComponents: {};
+    addPipe: (...ctxs: any[]) => void;
+    forceUpdate: (afterFn?: () => void) => void;
+};
+export default _default;
+export { Component, render, autorun, observer, isObserve, addObserve, register, addEventAlias, registerComponents, addPipe, forceUpdate };
