@@ -31,6 +31,10 @@ render(Hello, {store}, document.body)
 对于简单组件，可以不用声明props、state直接获取state/props上的key
 
 ## Component
+对于简单组件来说可以使用string/function作为组件，而不用继承Component
+- string/function 纯组件 支持
+- defaultProps 支持
+
 生命周期
 - willMount
 - didMount

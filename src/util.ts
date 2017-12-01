@@ -83,10 +83,20 @@ export function uniqueArr(arr = []) {
     return newArr
 }
 
+export function merge(...anys) {
+    const base = anys[0]
+    anys.slice(1).forEach(any => {
+        Object.keys(any).forEach(key => {
+            base[key] = any[key]
+        })
+    })
+    return base
+}
+
 /**
  * 绑定this
- * @param fn 
- * @param ctx 
+ * @param fn
+ * @param ctx
  */
 export function bindContext(fn: any, ctx: object) :any {
     if (getType(fn).includes('function')) {

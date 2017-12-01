@@ -1,5 +1,5 @@
 import Component from './Component';
-import { FElement } from "util";
+import { FElement } from "./util";
 /**
  * @param {any} Com
  * @param {*} props

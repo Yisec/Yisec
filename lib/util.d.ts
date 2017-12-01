@@ -23,6 +23,7 @@ export interface FElement {
 }
 export declare function ST(fn: () => void, time: number): void;
 export declare function uniqueArr(arr?: never[]): never[];
+export declare function merge(...anys: any[]): any;
 /**
  * 绑定this
  * @param fn

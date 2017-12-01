@@ -4,7 +4,7 @@ import ast from './ast'
 import { registerComponents } from "./register";
 import { autorun, observer, addObserve } from './autorun'
 import { execExpr } from "./execExpr";
-import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx } from './util'
+import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString } from './util'
 import diff from './diff'
 import render from './render'
 
@@ -272,7 +272,7 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
 }
 
 export function isComponent(component, ast: ASTNode) {
-    if (component && (component.prototype instanceof Component || isPromise(component))  )  {
+    if (isPromise(component) || isFunction(component) || isString(component))  {
         return true
     }
     console.error(component, `${ast.tagName} should be a Component!!! 您可以在组件的Components属性中添加子组件，或者通过Fv.register注册全局组件`)

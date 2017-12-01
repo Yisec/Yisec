@@ -99,6 +99,19 @@ function uniqueArr() {
     });
     return newArr;
 }
+function merge() {
+    for (var _len7 = arguments.length, anys = Array(_len7), _key7 = 0; _key7 < _len7; _key7++) {
+        anys[_key7] = arguments[_key7];
+    }
+
+    var base = anys[0];
+    anys.slice(1).forEach(function (any) {
+        Object.keys(any).forEach(function (key) {
+            base[key] = any[key];
+        });
+    });
+    return base;
+}
 /**
  * 绑定this
  * @param fn
@@ -185,6 +198,21 @@ var defineProperty = function (obj, key, value) {
 
 
 
+var inherits = function (subClass, superClass) {
+  if (typeof superClass !== "function" && superClass !== null) {
+    throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
+  }
+
+  subClass.prototype = Object.create(superClass && superClass.prototype, {
+    constructor: {
+      value: subClass,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  });
+  if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
+};
 
 
 
@@ -196,8 +224,13 @@ var defineProperty = function (obj, key, value) {
 
 
 
+var possibleConstructorReturn = function (self, call) {
+  if (!self) {
+    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+  }
 
-
+  return call && (typeof call === "object" || typeof call === "function") ? call : self;
+};
 
 
 
@@ -1772,7 +1805,7 @@ function getProps(vdom, ctxs) {
     return newProps;
 }
 function isComponent(component, ast) {
-    if (component && (component.prototype instanceof Component || isPromise(component))) {
+    if (isPromise(component) || isFunction(component) || isString(component)) {
         return true;
     }
     console.error(component, ast.tagName + " should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Fv.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6");
@@ -1891,6 +1924,44 @@ function transform(ast, element, ctxs) {
 }
 
 function render(Com, props, dom, vdom) {
+    if (isFunction(Com)) {
+        // 如果函数没有继承Component，就把它当做render方法
+        if (!(Com.prototype instanceof Component)) {
+            var renderFn = Com;
+            Com = function (_Component) {
+                inherits(Com, _Component);
+
+                function Com() {
+                    classCallCheck(this, Com);
+
+                    var _this = possibleConstructorReturn(this, (Com.__proto__ || Object.getPrototypeOf(Com)).apply(this, arguments));
+
+                    _this.render = renderFn;
+                    return _this;
+                }
+
+                return Com;
+            }(Component);
+        }
+    } else if (isString(Com)) {
+        var template = Com;
+        Com = function (_Component2) {
+            inherits(Com, _Component2);
+
+            function Com() {
+                classCallCheck(this, Com);
+
+                var _this2 = possibleConstructorReturn(this, (Com.__proto__ || Object.getPrototypeOf(Com)).apply(this, arguments));
+
+                _this2.template = template;
+                return _this2;
+            }
+
+            return Com;
+        }(Component);
+    } else {
+        console.error('render first param should be a function');
+    }
     var ctx = new Com();
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {
@@ -1901,7 +1972,7 @@ function render(Com, props, dom, vdom) {
     Object.defineProperty(ctx, 'props', {
         writable: false,
         enumerable: true,
-        value: observer(props)
+        value: observer(merge(props, Com.defaultProps || {}))
     });
     // 处理需要有个autorun包裹，然后
     // 需要obersev
