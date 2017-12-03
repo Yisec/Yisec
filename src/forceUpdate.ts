@@ -3,13 +3,9 @@ let timeout
 
 export function addExecQueue(list = []) {
     // return list.forEach(fn => fn())
-    
     clearTimeout(timeout)
     queue.push(...list)
-    timeout = setTimeout(() => {
-        forceUpdate()
-        console.timeEnd('forceUpdate')
-    })
+    timeout = setTimeout(forceUpdate)
 }
  
 export default function forceUpdate(afterFn = () => {}) {
@@ -18,10 +14,10 @@ export default function forceUpdate(afterFn = () => {}) {
         if (!haveExec.includes(fn)) {
             haveExec.push(fn)
             fn()
-            queue = queue.filter(i => i !== fn)
         } else {
-            console.log('不执行', fn.str)
+            // console.log('不执行', fn.str)
         }
     })
+    window.time1 && console.log('执行结束: ', Date.now() - window.time1)
     afterFn()
 }

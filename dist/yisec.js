@@ -821,17 +821,12 @@ var toAST$1 = function () {
 var queue = [];
 var timeout = void 0;
 function addExecQueue() {
-    var _queue;
-
     var list = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
 
     // return list.forEach(fn => fn())
     clearTimeout(timeout);
-    (_queue = queue).push.apply(_queue, toConsumableArray(list));
-    timeout = setTimeout(function () {
-        forceUpdate();
-        console.timeEnd('forceUpdate');
-    });
+    queue.push.apply(queue, toConsumableArray(list));
+    timeout = setTimeout(forceUpdate);
 }
 function forceUpdate() {
     var afterFn = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : function () {};
@@ -841,13 +836,11 @@ function forceUpdate() {
         if (!haveExec.includes(fn)) {
             haveExec.push(fn);
             fn();
-            queue = queue.filter(function (i) {
-                return i !== fn;
-            });
         } else {
-            console.log('不执行', fn.str);
+            // console.log('不执行', fn.str)
         }
     });
+    window.time1 && console.log('执行结束: ', Date.now() - window.time1);
     afterFn();
 }
 
@@ -1003,7 +996,8 @@ function observeArr() {
                     // 对于数组的变化，直接出发调用数组的依赖
                     console.log('arr change', key, options.parentDepend);
                     options.parentDepend && options.parentDepend.run();
-                    console.time('forceUpdate');
+                    // console.time('forceUpdate11')
+                    window.time1 = Date.now();
                     return result;
                 };
             },
@@ -1050,6 +1044,9 @@ function observer(obj) {
             return obj;
     }
 }
+function observerDeep(obj) {
+    return observer(obj, { deep: true });
+}
 /**
  * 接受函数，当依赖的数据发生变化后，会立即执行函数
  *
@@ -1084,6 +1081,31 @@ function autorun(fn, str, callback) {
     return destory;
 }
 
+var parseExpr = function () {
+    var cache = {};
+    return function parseExpr(body) {
+        if (cache[body]) {
+            return cache[body];
+        }
+        // 去除字符串，剩下的都是变量
+        // 对于关键字new 和 对象的支持很懵逼
+        var params = (body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串
+        .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key
+        .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*/g) || [] // 获取所有变量 .?aa
+        ).filter(function (i) {
+            return i[0] !== '.';
+        }); // 去除.aa
+        params = uniqueArr(params);
+        var result = {
+            params: params,
+            body: body,
+            fn: new (Function.prototype.bind.apply(Function, [null].concat(toConsumableArray(params), ['return ' + body])))()
+        };
+        cache[body] = result;
+        return result;
+    };
+}();
+
 var pipes = [];
 function addPipe() {
     pipes.push.apply(pipes, arguments);
@@ -1116,13 +1138,13 @@ function getPipes(exprs, ctxs) {
     })));
 }
 // 分割表达式，只处理不重复的分隔符|
-var splitExpr = function () {
-    var splitExprCache = {};
-    return function splitExpr() {
+var parseFilter = function () {
+    var parseFilterCache = {};
+    return function parseFilter() {
         var str = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
-        if (splitExprCache[str]) {
-            return splitExprCache[str];
+        if (parseFilterCache[str]) {
+            return parseFilterCache[str];
         }
         var exprArr = [];
         var current = '';
@@ -1138,25 +1160,37 @@ var splitExpr = function () {
             index += 1;
         }
         exprArr.push(current);
-        splitExprCache[str] = exprArr;
+        parseFilterCache[str] = exprArr;
         return exprArr;
     };
 }();
+function getValue(key, ctxs) {
+    for (var i = 0; i < ctxs.length; i++) {
+        if (ctxs[i][key] !== undefined) {
+            return ctxs[i][key];
+        }
+    }
+    return window[key];
+}
 function execExprIm() {
     var expr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
     var ctxs = arguments[1];
 
-    var splitResult = splitExpr(expr);
+    var splitResult = parseFilter(expr);
     var inputExpr = splitResult[0];
     // 我们不合并对象，因为对象可能是observable的，这里通过with嵌套的形式
-    var names = ctxs.map(function (i, index) {
-        return '__with__local__' + index;
-    });
-    var body = 'return ' + inputExpr;
-    names.reverse().forEach(function (i) {
-        body = 'with (' + i + ') {\n            ' + body + '\n         }';
-    });
-    var input = new (Function.prototype.bind.apply(Function, [null].concat(toConsumableArray(names), [body])))().apply(undefined, toConsumableArray(ctxs));
+    var parseResult = parseExpr(expr);
+    var input = parseResult.fn.apply(parseResult, toConsumableArray(parseResult.params.map(function (key) {
+        return getValue(key, ctxs);
+    })));
+    // const names = ctxs.map((i, index) => '__with__local__' + index)
+    // let body = `return ${inputExpr}`
+    // names.reverse().forEach(i => {
+    //     body = `with (${i}) {
+    //         ${body}
+    //      }`
+    // })
+    // const input = new Function(...names, body)(...ctxs)
     if (splitResult.length > 1) {
         var _pipes = getPipes(splitResult.slice(1), ctxs);
         return handlePipe(_pipes)(input);
@@ -1998,6 +2032,7 @@ var index = {
     observer: observer,
     isObserve: isObserve,
     addObserve: addObserve,
+    observerDeep: observerDeep,
     register: register,
     addEventAlias: addEventAlias,
     registerComponents: registerComponents,
@@ -2012,6 +2047,7 @@ exports.autorun = autorun;
 exports.observer = observer;
 exports.isObserve = isObserve;
 exports.addObserve = addObserve;
+exports.observerDeep = observerDeep;
 exports.register = register;
 exports.addEventAlias = addEventAlias;
 exports.registerComponents = registerComponents;

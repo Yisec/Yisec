@@ -144,7 +144,8 @@ export function observeArr(arr = [], options: ObserveOptions) {
                     // 对于数组的变化，直接出发调用数组的依赖
                     console.log('arr change', key, options.parentDepend)
                     options.parentDepend && options.parentDepend.run()
-                    console.time('forceUpdate')
+                    // console.time('forceUpdate11')
+                    window.time1 = Date.now()
                     return result
                 }
             },
@@ -175,7 +176,7 @@ export function observeObj(obj = {}, options) {
  * @param {objet} obj 
  * @returns 
  */
-export function observer(obj, options: ObserveOptions = {deep: false}) {
+export function observer(obj: any, options: ObserveOptions = {deep: false}) {
     if (isObserve(obj)) {
         return obj
     }
@@ -187,6 +188,10 @@ export function observer(obj, options: ObserveOptions = {deep: false}) {
         default:
             return obj
     }
+}
+
+export function observerDeep(obj: any) {
+    return observer(obj, { deep: true })
 }
 
 /**

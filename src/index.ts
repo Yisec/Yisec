@@ -1,6 +1,6 @@
 import Component from './Component'
 import render from './render'
-import { autorun, observer, Depends, isObserve, addObserve, ObserveOptions } from './autorun'
+import { autorun, observer, Depends, isObserve, addObserve, ObserveOptions, observerDeep } from './autorun'
 import register, { registerComponents } from "./register";
 import { addEventAlias } from "./eventAlias";
 import { addPipe } from "./execExpr";
@@ -13,6 +13,7 @@ export default {
     observer,
     isObserve,
     addObserve,
+    observerDeep,
     register,
     addEventAlias,
     registerComponents,
@@ -27,6 +28,7 @@ export {
     observer,
     isObserve,
     addObserve,
+    observerDeep,
     register,
     addEventAlias,
     registerComponents,

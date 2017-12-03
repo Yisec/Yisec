@@ -40,6 +40,7 @@ export declare function observeObj(obj: {} | undefined, options: any): Observe;
  * @returns
  */
 export declare function observer(obj: any, options?: ObserveOptions): any;
+export declare function observerDeep(obj: any): any;
 /**
  * 接受函数，当依赖的数据发生变化后，会立即执行函数
  *
