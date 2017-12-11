@@ -1,3 +1,4 @@
+import { VirtualDOM } from "./d";
 export interface LifeCycle {
     willMount(): any;
     didMount(): any;
@@ -16,6 +17,7 @@ export default class Component implements LifeCycle {
     parent: Component;
     children: Component[];
     refs: Refs;
+    vdom: VirtualDOM;
     computed: object;
     render(): string;
     $emit: (key: any, ...data: any[]) => void;

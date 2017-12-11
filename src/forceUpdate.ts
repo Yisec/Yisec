@@ -1,23 +1,44 @@
-let queue = []
+export type FX = () => any
+export type addUpdateQueueList = FX[]
+let queue:addUpdateQueueList = []
 let timeout
+let isUpdating = false
+let time = 0
+let realtime = 0
 
-export function addExecQueue(list = []) {
+export function addUpdateQueue(list: addUpdateQueueList = [], key?) {
     // return list.forEach(fn => fn())
+
+    if (isUpdating) {
+        // 如果已进入更新之中，则所有因为更新加入队列之中的任务都会立即执行
+        list.forEach(fn => fn())
+        return
+    }
     clearTimeout(timeout)
     queue.push(...list)
-    timeout = setTimeout(forceUpdate)
+    if (!time) {
+        time = Date.now()
+    }
+    realtime = Date.now()
+    // setTimeout执行时间明显比0ms要长很多，但是Performance并没有记录函数执行
+    timeout = setTimeout(forceUpdate, 0)
 }
- 
+
 export default function forceUpdate(afterFn = () => {}) {
-    const haveExec = []
+    console.log('setTimeout等待时长', Date.now() - realtime)
+    isUpdating = true
+    const haveExec: addUpdateQueueList = []
+
     queue.forEach(fn => {
+        // 查看是否执行
         if (!haveExec.includes(fn)) {
             haveExec.push(fn)
             fn()
-        } else {
-            // console.log('不执行', fn.str)
         }
     })
-    window.time1 && console.log('执行结束: ', Date.now() - window.time1)
+    isUpdating = false
+    queue = []
+    console.log('执行时长', Date.now() - time)
+    time = 0
     afterFn()
 }

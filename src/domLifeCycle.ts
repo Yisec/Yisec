@@ -3,7 +3,7 @@ import handleClass, { testClass } from "./handleClass";
 
 /**
  * 判断dom是否可以异步卸载
- * @param vdom 
+ * @param vdom
  */
 export function handleLeave(vdom: VirtualDOM) : boolean {
     const { leaveTime } = vdom.ast.props
@@ -23,7 +23,7 @@ export function handleLeave(vdom: VirtualDOM) : boolean {
 
 /**
  * dom加载成功后，同步做某些事情
- * @param vdom 
+ * @param vdom
  */
 export function handleEnter(vdom: VirtualDOM) {
     if (vdom.dom && testClass(vdom, 'enter')) {

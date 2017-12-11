@@ -1,4 +1,6 @@
 import { getType, isFunction } from "./util";
+import { VirtualDOM } from "./d";
+import { unmountNode } from "./unmount";
 
 export interface LifeCycle {
     willMount()
@@ -23,13 +25,14 @@ export default class Component implements LifeCycle {
     // 子组件
     components = {}
     // 父组件
-    parent: Component 
+    parent: Component
     // 子组件
-    children: Component[]= [] 
+    children: Component[]= []
     // 指定dom
-    refs: Refs = {} 
+    refs: Refs = {}
+    vdom = new VirtualDOM()
     // 方便template直接获取经过复杂计算的数据
-    computed: object = {} 
+    computed: object = {}
     render() : string {
         return this.template
     }
@@ -71,6 +74,7 @@ export default class Component implements LifeCycle {
     __willUnmount() {
         this.children.forEach(com => com.__willUnmount())
         this.willUnmount()
+        unmountNode(this.vdom)
         this.children = []
         if (this.parent) {
             this.parent.children = this.parent.children.filter(i => i !== this)

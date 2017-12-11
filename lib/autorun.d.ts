@@ -3,7 +3,8 @@ export declare class Observe {
 export declare type autorunFn = () => void;
 export declare type DestoryFn = autorunFn;
 export declare type GetDestory = (fn: autorunFn) => DestoryFn;
-export declare type CurrentFn = (fn: GetDestory) => autorunFn;
+export declare type CurrentFn = (fn: GetDestory, depend: Depends) => autorunFn;
+export declare function resetCurrentFn(): void;
 /**
  * 依赖
  * @class Depends
@@ -14,7 +15,7 @@ export declare class Depends {
     key: any;
     constructor(root: any, key: any);
     collect(): void;
-    run(): void;
+    run(key?: string): void;
 }
 export declare function isObserve(obj: any): any;
 export declare function addObserve(ctx: any, key: string, defaultValue?: any, options?: ObserveOptions): void;
@@ -47,4 +48,4 @@ export declare function observerDeep(obj: any): any;
  * @param {function} fn
  * @returns
  */
-export declare function autorun(fn: () => void, str?: string, callback?: any): () => void;
+export declare function autorun(fn: () => void, options?: {}): () => void;

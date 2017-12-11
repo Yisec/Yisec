@@ -1,15 +1,19 @@
-import { getType, bindContext, uuid, isArray } from "./util";
-import { addExecQueue } from "./forceUpdate";
+import { getType, bindContext, uuid, isArray, isFunction } from "./util";
+import { addUpdateQueue } from "./forceUpdate";
 
 export class Observe {}
 export type autorunFn = () => void
 export type DestoryFn = autorunFn
 export type GetDestory = (fn: autorunFn) => DestoryFn
-export type CurrentFn = (fn: GetDestory) => autorunFn
+export type CurrentFn = (fn: GetDestory, depend: Depends) => autorunFn
 const defaultCurrent = () => () => {}
 
 // observer数据get时，进行依赖手机
 let currentFn: CurrentFn = defaultCurrent
+
+export function resetCurrentFn() {
+    currentFn = defaultCurrent
+}
 
 /**
  * 依赖
@@ -31,13 +35,11 @@ export class Depends {
                 return () => {
                     this.list = this.list.filter(i => i !== fn)
                 }
-            })
+            }, this)
         }
     }
-    run() {
-        // debugger
-        // console.log(this.key, this.list)
-        addExecQueue(this.list)
+    run(key?: string) {
+        addUpdateQueue(this.list, this.key)
     }
 }
 
@@ -91,6 +93,7 @@ export function addObserve(ctx: any, key: string, defaultValue = ctx[key], optio
             return value
         },
         set(newValue) {
+            // 每次值更新都会触发更新
             isResetValue = true
             value = bindContext(newValue, ctx)
             // 触发依赖函数更新
@@ -107,8 +110,8 @@ export interface ObserveOptions {
 
 /**
  * 监听数组
- * @param arr 
- * @param parentDepends 
+ * @param arr
+ * @param parentDepends
  */
 export function observeArr(arr = [], options: ObserveOptions) {
     const newArr = arr.map(item => observer(item))
@@ -117,7 +120,7 @@ export function observeArr(arr = [], options: ObserveOptions) {
         enumerable: false,
         writable: false,
         configurable: false,
-    }) 
+    })
 
     ;[
         'splice',
@@ -137,15 +140,12 @@ export function observeArr(arr = [], options: ObserveOptions) {
                         } else if (key == 'splice') {
                             args = args.slice(0, 2).concat(
                                 args.slice(2).map(i => observer(i))
-                            ) 
+                            )
                         }
                     }
                     const result = value(...args)
                     // 对于数组的变化，直接出发调用数组的依赖
-                    console.log('arr change', key, options.parentDepend)
                     options.parentDepend && options.parentDepend.run()
-                    // console.time('forceUpdate11')
-                    window.time1 = Date.now()
                     return result
                 }
             },
@@ -157,8 +157,8 @@ export function observeArr(arr = [], options: ObserveOptions) {
 
 /**
  * 监听对象
- * @param obj 
- * @param init 
+ * @param obj
+ * @param init
  */
 export function observeObj(obj = {}, options) {
     let newObj = new Observe()
@@ -173,8 +173,8 @@ export function observeObj(obj = {}, options) {
 
 /**
  * 构造一个新的observe对象
- * @param {objet} obj 
- * @returns 
+ * @param {objet} obj
+ * @returns
  */
 export function observer(obj: any, options: ObserveOptions = {deep: false}) {
     if (isObserve(obj)) {
@@ -196,33 +196,40 @@ export function observerDeep(obj: any) {
 
 /**
  * 接受函数，当依赖的数据发生变化后，会立即执行函数
- * 
- * @param {function} fn 
- * @returns 
+ *
+ * @param {function} fn
+ * @returns
  */
-export function autorun(fn: ()=> void, str?: string, callback?) {
+export function autorun(fn: ()=> void, options = {}) {
     let destoryDepends: DestoryFn[] = []
+    let depends: Depends[] = []
     // 销毁依赖
     const destory = () => {
         destoryDepends.forEach(fn => fn())
         destoryDepends = []
+        depends.splice(0, depends.length)
     }
+    destory.depends = depends
 
     const wrapFn = () => {
-        // console.log('autorun::', str, wrapFn.str, wrapFn.callback, wrapFn)
+        // 显示之前依赖
+        // console.log('before', depends.map(i => i.key))
         destory() // 销毁上次依赖监听
         // 收集本次依赖
-        currentFn = (getDestory) => {
+        currentFn = (getDestory, depend: Depends) => {
             destoryDepends.push(getDestory(wrapFn))
+            depends.push(depend)
             return wrapFn
         }
-        fn()
+        const result = fn()
         // 重置回默认值
-        currentFn = defaultCurrent
+        resetCurrentFn()
+        // 显示之前依赖
+        // console.log('after', depends.map(i => i.key))
+        isFunction(options.callback) && options.callback(result)
     }
-    wrapFn.str = str
-    wrapFn.callback = callback
-    
+    // wrapFn.async = options.async
+
     // 立即执行
     wrapFn()
     return destory

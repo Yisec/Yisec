@@ -7,4 +7,5 @@ export declare function execExprIm(expr: string | undefined, ctxs: any[]): any;
  * @param {(result: any) => void} fn
  * @returns
  */
-export declare function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void): () => void;
+export declare function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void, transform?: boolean): () => void;
+export declare function asyncExecExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void): () => void;

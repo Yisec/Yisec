@@ -11,7 +11,7 @@ export function addPipe(...ctxs) {
 
 /**
  * pipe 上一个函数返回结果作为下一个函数的输入
- * @param fns 
+ * @param fns
  */
 function handlePipe(...fns) {
     return (arg) => {
@@ -29,12 +29,22 @@ function getPipes(exprs, ctxs) {
     )
 }
 
-
+/**
+ * 从作用域链中获取指定key的值
+ * @param key
+ * @param ctxs
+ */
 function getValue(key, ctxs) {
     for (let i=0; i< ctxs.length; i++) {
-        if (ctxs[i][key] !== undefined) {
+        if (ctxs[i].hasOwnProperty(key)) {
             return ctxs[i][key]
         }
+    }
+    if (key === 'true') {
+        return true
+    }
+    if (key === 'false') {
+        return false
     }
     return window[key]
 }
@@ -44,7 +54,7 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
     // 我们不合并对象，因为对象可能是observable的，这里通过with嵌套的形式
     const parseResult = parseExpr(inputExpr)
     const input = parseResult.fn(...parseResult.params.map(key => getValue(key, ctxs)))
-    
+
     // const names = ctxs.map((i, index) => '__with__local__' + index)
     // let body = `return ${inputExpr}`
     // names.reverse().forEach(i => {
@@ -61,21 +71,21 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
 
 /**
  * 执行表达式
- * @param {string} expr 
- * @param {any[]} ctxs 
- * @param {(result: any) => void} fn 
- * @returns 
+ * @param {string} expr
+ * @param {any[]} ctxs
+ * @param {(result: any) => void} fn
+ * @returns
  */
-export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void) {
-    let oldValue: any 
+export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void, transform = false ) {
+    let oldValue: any
     let oldLen: number
+    let newValueCache: any
     function isEqual(newValue, oldValue) {
-        // console.log(newValue, oldValue)
         if (newValue !== oldValue) {
             return false
         }
         if (isArray(newValue)) {
-            const newLen = newValue.length 
+            const newLen = newValue.length
             const equal = newLen === oldLen
             oldLen = newLen
             return equal
@@ -83,10 +93,19 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
         return true
     }
     return fn && autorun(() => {
-        const newValue = execExprIm(expr, ctxs)
-        ;(!isEqual(newValue, oldValue)) && fn(newValue, oldValue)
-        oldValue = newValue
-    }, expr, fn)
+        return execExprIm(expr, ctxs)
+    }, {
+        callback: newValue => {
+            oldValue = newValueCache
+            newValueCache = newValue
+            const equal = isEqual(newValue, oldValue)
+            !equal && fn(newValue, oldValue)
+        },
+        async: transform, // 是否需要一步执行回调
+        expr,
+    })
 }
 
-// 不应该在表达式内，定义一个observer
+export function asyncExecExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void) {
+    return execExpr(expr, ctxs, fn, true)
+}

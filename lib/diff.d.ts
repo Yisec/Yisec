@@ -1,4 +1,4 @@
-export interface Add {
+export interface DiffAdd {
     before: {
         key: any;
         arr: any[];
@@ -12,5 +12,6 @@ export default function diff(oldArr?: never[], newArr?: never[], isKeyExist?: bo
     del: {
         arr: never[];
     };
-    add: Add;
+    add: DiffAdd;
+    noChange: boolean;
 };

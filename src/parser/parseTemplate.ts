@@ -1,10 +1,10 @@
 // 解析template
 // 有时候我们不想使用jsx，不想使用babel编译💊
 // 那就使用类似vue angular之类的字符串模板吧
-// 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层 
+// 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层
 // 自身的逻辑层可以作为控制器
 // 再加一个Model作为数据来源
-import { ASTNode, TokenElement } from "./d";
+import { ASTNode, TokenElement } from "./../d";
 
 /**
  * 半闭合标签 可以以 > 或 /> 结尾
@@ -46,9 +46,9 @@ const M = {
 
 /**
  * 字符串转token
- * 
- * @param {string} [str=''] 
- * @returns {TokenElement[]} 
+ *
+ * @param {string} [str='']
+ * @returns {TokenElement[]}
  */
 export function getToken(str: string = '') :TokenElement[] {
     const token: TokenElement[] = []
@@ -126,7 +126,7 @@ export function getToken(str: string = '') :TokenElement[] {
 
         // Aaa-bb 向前读一位需要是 OPEN_START | CLOSE_START
         if (
-            M.TAG_NAME.test(localStr) 
+            M.TAG_NAME.test(localStr)
             && (getPrev(1).type == 'OPEN_START' || getPrev(1).type == 'CLOSE_START')
         ) {
             const [matchStr, value] = localStr.match(M.TAG_NAME) || ['', '']
@@ -149,10 +149,10 @@ export function getToken(str: string = '') :TokenElement[] {
             return next()
         }
 
-        // 属性value "" 
+        // 属性value ""
         if (
-            M.PROPERTY_VALUE.test(localStr) 
-            && getPrev(1).type == 'EQ' // 向前读一位需要是 EQ 
+            M.PROPERTY_VALUE.test(localStr)
+            && getPrev(1).type == 'EQ' // 向前读一位需要是 EQ
             && getPrev(2).type == 'PROPERTY_NAME' // 向前读2位需要是 PROPERTY_NAME
         ) {
             // 向前读，需要是
@@ -184,7 +184,7 @@ export function getToken(str: string = '') :TokenElement[] {
             )
             index += value.length
             localStr = localStr.slice(value.length)
-            return next()  
+            return next()
         }
     }
     next()
@@ -193,10 +193,10 @@ export function getToken(str: string = '') :TokenElement[] {
 
 /**
  * 处理解析错误
- * 
- * @param {any} token 
- * @param {any} template 
- * @param {any} message 
+ *
+ * @param {any} token
+ * @param {any} template
+ * @param {any} message
  */
 function handleASTError(token, template, message) {
     const str = template.slice(0, token.index)
@@ -207,7 +207,7 @@ function handleASTError(token, template, message) {
     console.error(`at row:${row} column:${column} \n\n${template.slice(token.index, token.index + 100)} \n\n${message}`)
 }
 
-// 读取元素 
+// 读取元素
 // token[0].type == 'OPEN_START'
 // token[1].type == 'TAG_NAME'
 // token[2].type == 'TAG_NAME' *
@@ -254,11 +254,11 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
                     }  else {
                         handleASTError(getT(localIndex), template, `${getT(localIndex).value} should have a value`)
                     }
-                } 
+                }
                 props[getT(localIndex).value] = true
                 localIndex += 1
             }
-            
+
             const TAG_TYPE = getT(localIndex).type
             if ( TAG_TYPE == 'TAG_CLOSE' || TAG_TYPE == 'SELF_CLOSE' ) {
                 const node = new ASTNode(tagName)
@@ -270,7 +270,7 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
                 }
             }
             index = localIndex + 1
-        } 
+        }
         // close tag
         else if (
             currentT.type == 'CLOSE_START'
@@ -279,25 +279,25 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
         ) {
             if (currentNode.tagName !== getT(index + 1).value) {
                 handleASTError(
-                    getT(index + 1), 
-                    template, 
+                    getT(index + 1),
+                    template,
                     `close tag name should be ${currentNode.tagName}, but now is ${getT(index + 1).value}`
                 )
             }
             currentNode = currentNode.parent
-            index += 3 
-        } 
+            index += 3
+        }
         // 文本节点
         else {
             const last = currentNode.children[currentNode.children.length - 1]
-            
+
             if (currentT.type == 'EXPR') {
                 const node = new ASTNode()
                 node.value = currentT.value
                 node.type = 'expr'
                 node.parent = currentNode
                 currentNode.children.push(node)
-            } 
+            }
             // 如果前面是文本节点，就追加上去
             else if (last && last.type === 'text') {
                 last.value += currentT.value
@@ -311,7 +311,7 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
             index++
         }
         next()
-    } 
+    }
     return root
 }
 

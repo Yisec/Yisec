@@ -8,8 +8,8 @@ export const registerComponents = {}
 
 /**
  * 添加全局组件
- * @param name 
- * @param Com 
+ * @param name
+ * @param Com
  */
 export default function register(name: string, Com: typeof Component ) {
     registerComponents[name] = Com

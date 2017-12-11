@@ -36,7 +36,7 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
         vdom.exprs.push(
             execExpr(value, ctxs, (newValue, oldValue) => {
                 classNames[key] = toClassNames(newValue)
-                updateClassName(element, classNames) 
+                updateClassName(element, classNames)
             })
 
         )
@@ -50,7 +50,7 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
                 newValue = toClassNames(newValue).split(/\s+/g).map(key => {
                     return (ctxs[0].mclass || {})[key]
                 }).join(' ')
-                classNames[key] = newValue 
+                classNames[key] = newValue
                 updateClassName(element, classNames)
             })
         )
@@ -65,4 +65,4 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
         return false
     }
     return true
-} 
+}

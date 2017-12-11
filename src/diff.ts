@@ -1,7 +1,7 @@
 // 处理数组diff 返回数组变更
 import { uniqueArr } from "./util";
 
-export interface Add {
+export interface DiffAdd {
     before: {
         key: any,
         arr: any[],
@@ -20,7 +20,7 @@ export default function diff(oldArr = [], newArr = [], isKeyExist = true) {
     let deleteAll = false // 是否删除所有元素
     let addAll = false
     let prevIndex = -2
-    let add: Add
+    let add: DiffAdd
 
     if (!isKeyExist) {
         return {
@@ -36,7 +36,8 @@ export default function diff(oldArr = [], newArr = [], isKeyExist = true) {
                     key: null,
                     arr: [],
                 }
-            }
+            },
+            noChange: false,
         }
     }
 
@@ -86,12 +87,13 @@ export default function diff(oldArr = [], newArr = [], isKeyExist = true) {
             },
         }
     }
-    
+
     // 计算新增数组
     return {
         del: {
             arr: deleteArr,
-        }, 
+        },
         add,
+        noChange: add.before.arr.length === 0 && add.after.arr.length === 0 && deleteArr.length === 0,
     }
 }

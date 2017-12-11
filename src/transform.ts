@@ -1,10 +1,9 @@
 import { EventAlias, VirtualDOM, ASTNode, Props } from "./d";
+import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString } from './util'
 
-import ast from './ast'
 import { registerComponents } from "./register";
 import { autorun, observer, addObserve } from './autorun'
 import { execExpr } from "./execExpr";
-import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString } from './util'
 import diff from './diff'
 import render from './render'
 
@@ -20,31 +19,30 @@ import { handleEnter } from "./domLifeCycle";
 function handleVFor(value, element, ctxs, vdom, node) {
     const [itemIndex ,arrName] = value.split(' in ').map(i => i.trim())
     const [itemName, indexName] = itemIndex.replace(/(^\s*\()|(\)\s*$)/g, '').split(',').map(i => i.trim())
-    
+
     let isExeced = false // 是否执行过
     let cacheKeys = []
     let cacheKeyVdom = {}
+    const keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key'])
     vdom.exprs.push(
         execExpr(arrName, ctxs, (newValue, oldValue = []) => {
-            // console.log('数组发生变化', arrName, newValue.length, oldValue.length)
             // v-for只应该含有一个子元素
             if (node.children.length > 1) {
                 console.error(`v-for just should have one child`)
             }
             // diff cache key
-            const keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key'])
             const newKeyValue = newValue.map((item, index) => {
                 let key
                 execExpr(
-                    keyValue, 
+                    keyValue,
                     [
-                        ...ctxs, 
+                        ...ctxs,
                         {
                             [itemName]: item,
                             [indexName]: index,
                         }
-                    ], 
-                    (newValue, oldValue) => {
+                    ],
+                    newValue => {
                         key = newValue
                     }
                 )()
@@ -55,33 +53,37 @@ function handleVFor(value, element, ctxs, vdom, node) {
             })
 
             const newKyes = newKeyValue.map(i => i.key)
-            const { add, del } = diff(cacheKeys, newKyes, keyValue)
+            const { add, del, noChange } = diff(cacheKeys, newKyes, keyValue)
+            if (noChange) return
+            cacheKeys = newKyes
             // console.log('数组更新:', newValue, add, del)
             if (isExeced) {
                 // 存在key，卸载需要删除的key对应的vdom，否则整体卸载
-                keyValue 
-                ? del.arr.forEach(key => {
-                    unmountChildren(cacheKeyVdom[key].vdom)
-                    delete cacheKeyVdom[key] // 删除缓存
-                })
-                : unmountChildren(vdom)
+                if (keyValue) {
+                    // return
+                    del.arr.forEach(key => {
+                        unmountChildren(cacheKeyVdom[key].vdom)
+                        delete cacheKeyVdom[key] // 删除缓存
+                    })
+                } else {
+                    unmountChildren(vdom)
+                }
             }
 
-            cacheKeys = newKyes
             isExeced = true
-            
+
             // 我们只处理 移除 + 头尾新增的情况
             // key不发生变化的需要更新index
-            // key新增的还是需要新增 
+            // key新增的还是需要新增
             const childNode = element.childNodes && element.childNodes[0]
             newKeyValue.forEach((keyItem, index) => {
                 const { key, item } = keyItem
                 // 不存在就新增，存在就更新
                 if (!cacheKeyVdom[key]) {
-                    const observeIndexItem = observer({
-                        [itemName]: item,
-                        [indexName]: index,
-                    })
+                    let dd = {}
+                    indexName && (dd[indexName] = index)
+                    itemName && (dd[itemName] = item)
+                    const observeIndexItem = observer(dd)
 
                     const PE = add.before.arr.includes(key) ? {
                         appendChild: (newNode) => {
@@ -91,8 +93,8 @@ function handleVFor(value, element, ctxs, vdom, node) {
                     } : element;
 
                     const result = transform(
-                        node, 
-                        PE, 
+                        node,
+                        PE,
                         [...ctxs, observeIndexItem],
                         vdom,
                     )
@@ -104,8 +106,9 @@ function handleVFor(value, element, ctxs, vdom, node) {
                         }
                     }
                 } else {
-                    cacheKeyVdom[key].observeIndexItem[indexName] = index
-                    cacheKeyVdom[key].observeIndexItem[itemName] = item
+                    const hh = cacheKeyVdom[key].observeIndexItem
+                    // itemName && (hh[itemName] = item)
+                    indexName && (hh[indexName] = index)
                 }
             })
         })
@@ -114,11 +117,11 @@ function handleVFor(value, element, ctxs, vdom, node) {
 
 /**
  * 添加属性
- * 
- * @param {HTMLElement} element 
- * @param {any} node 
- * @param {array} ctxs 
- * @returns 
+ *
+ * @param {HTMLElement} element
+ * @param {any} node
+ * @param {array} ctxs
+ * @returns
  */
 function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
     const {ast: node} = vdom
@@ -151,7 +154,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                     }
                 })
             )
-        } 
+        }
         // 处理属性表达式
         else if (key.startsWith(':')) {
             vdom.exprs.push(
@@ -160,7 +163,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                     if (node.tagName == 'input' && KEY == 'checked') {
                         element[KEY] = newValue
                         return
-                    } 
+                    }
 
                     if (KEY === 'style') {
                         newValue = handleStyle(newValue)
@@ -183,7 +186,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
             else if (key === 'v-for') {
                 info.transformChildren = false
                 handleVFor(value, element, ctxs, vdom, node)
-            } 
+            }
         }
         // 添加处理ref
         else if (key === 'ref') {
@@ -195,7 +198,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                 case 'function': {
                     value()
                     break
-                }   
+                }
             }
         }
         else {
@@ -208,16 +211,16 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
 
 /**
  * 处理v-if命令
- * 
- * @param {HTMLElement} parent 
- * @param {any} node 
- * @param {array} ctxs 
+ *
+ * @param {HTMLElement} parent
+ * @param {any} node
+ * @param {array} ctxs
  */
 function handleVIf(parent, node, ctxs: any[], parentVdom: VirtualDOM) {
     let commentHook = document.createComment('v-if 占位')
     parent.appendChild(commentHook)
     let collect:VirtualDOM[] = []
-    const destroy = parentVdom.exprs.push( 
+    const destroy = parentVdom.exprs.push(
         execExpr(node.props['v-if'], ctxs, (newValue, oldValue) => {
             if (newValue) {
                 addElement((ele, vdom) => {
@@ -235,9 +238,9 @@ function handleVIf(parent, node, ctxs: any[], parentVdom: VirtualDOM) {
 
 /**
  * 获取自定义组件属性
- * @param node 
- * @param vdom 
- * @param ctxs 
+ * @param node
+ * @param vdom
+ * @param ctxs
  */
 function getProps(vdom: VirtualDOM, ctxs: any[]) {
     const { ast: node } = vdom
@@ -257,11 +260,11 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
                         newProps[KEY] = newValue
                     }
                 })
-            ) 
+            )
         } else {
             newProps[key] = value
         }
-    }) 
+    })
     // 元素传递
     newProps['children'] = {
         node,
@@ -281,11 +284,11 @@ export function isComponent(component, ast: ASTNode) {
 
 /**
  * 添加元素
- * 
- * @param {function} appendFn 
- * @param {any} node 
- * @param {array} ctxs 
- * @returns 
+ *
+ * @param {function} appendFn
+ * @param {any} node
+ * @param {array} ctxs
+ * @returns
  */
 function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM) :VirtualDOM {
     const vdom = new VirtualDOM(parentVdom)
@@ -325,7 +328,7 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
                 renderComponent(Com)
             }
         }
-        
+
     } else if (ast.tagName == 'slot') {
         // 处理slot，获取children后，并不监听变化
         execExpr('props.children', ctxs, (newValue) => {
@@ -345,14 +348,14 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
     return vdom
 }
 
-// 
+//
 
 /**
  * ast transform to node
- * 
- * @param {any} ast 
- * @param {HTMLElement} element 
- * @param {anray} ctxs 
+ *
+ * @param {any} ast
+ * @param {HTMLElement} element
+ * @param {anray} ctxs
  */
 function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom: VirtualDOM = new VirtualDOM() ) {
     const vdoms = ast.children.map(node => {
@@ -377,7 +380,7 @@ function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom: Vir
                     execExpr(node.value, ctxs, (newValue) => {
                         createE.textContent = newValue
                     })
-                )           
+                )
             } else {
                 createE = document.createTextNode(node.value)
                 element.appendChild(createE)

@@ -1,4 +1,3 @@
-
 // 分割表达式，只处理不重复的分隔符|
 const parseFilter = (function() {
     let parseFilterCache = {}
@@ -35,3 +34,5 @@ const parseFilter = (function() {
         return result
     }
 }())
+
+export default parseFilter
