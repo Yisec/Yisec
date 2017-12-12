@@ -29,7 +29,7 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
         console.error(`render first param should be a function`)
     }
     const ctx = <Component>new Com()
-    
+
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {
         writable: false,

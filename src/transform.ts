@@ -348,8 +348,6 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
     return vdom
 }
 
-//
-
 /**
  * ast transform to node
  *

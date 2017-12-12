@@ -402,8 +402,6 @@ var ASTNode = function ASTNode() {
 var queue = [];
 var timeout = void 0;
 var isUpdating = false;
-var time = 0;
-var realtime = 0;
 function addUpdateQueue() {
     var _queue;
 
@@ -417,17 +415,18 @@ function addUpdateQueue() {
     }
     clearTimeout(timeout);
     (_queue = queue).push.apply(_queue, toConsumableArray(list));
-    if (!time) {
-        time = Date.now();
-    }
-    realtime = Date.now();
+    // if (!time) {
+    //     time = Date.now()
+    // }
+    // realtime = Date.now()
     // setTimeout执行时间明显比0ms要长很多，但是Performance并没有记录函数执行
+    // 经排查发现是mac上chrome的页面滚动阻塞了异步事件的执行
     timeout = setTimeout(forceUpdate, 0);
 }
 function forceUpdate() {
     var afterFn = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : function () {};
 
-    console.log('setTimeout等待时长', Date.now() - realtime);
+    // console.log('setTimeout等待时长', Date.now() - realtime)
     isUpdating = true;
     var haveExec = [];
     queue.forEach(function (fn) {
@@ -439,8 +438,7 @@ function forceUpdate() {
     });
     isUpdating = false;
     queue = [];
-    console.log('执行时长', Date.now() - time);
-    time = 0;
+    // console.log('执行时长', Date.now() - time)
     afterFn();
 }
 
@@ -1975,7 +1973,6 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
     }
     return vdom;
 }
-//
 /**
  * ast transform to node
  *
