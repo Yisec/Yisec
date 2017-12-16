@@ -18,6 +18,7 @@ export declare class VirtualDOM {
     unmounted: boolean;
     dom: Node;
     ast: ASTNode;
+    reRender: any;
     constructor(parent?: VirtualDOM);
     unmount(): void;
 }

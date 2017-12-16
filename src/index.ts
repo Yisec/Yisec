@@ -7,6 +7,7 @@ import { addPipe } from "./execExpr";
 import forceUpdate, {addUpdateQueue} from "./forceUpdate";
 import { VirtualDOM } from "./d";
 import { FElement } from "./util";
+import router, {RouterConfig} from './router';
 
 export default {
     Component,
@@ -22,6 +23,7 @@ export default {
     addPipe,
     forceUpdate,
     addUpdateQueue,
+    router,
 }
 
 export {
@@ -38,4 +40,5 @@ export {
     addPipe,
     forceUpdate,
     addUpdateQueue,
+    router,
 }

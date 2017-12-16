@@ -33,3 +33,4 @@ export declare function bindContext(fn: any, ctx: object): any;
 export declare function uuid(len?: number): string;
 export declare function getComponent(name?: string, ctxs?: object[]): any;
 export declare function getParentCtx(ctxs?: object[]): Component;
+export declare function resortArr(arr?: any[], ...keys: any[]): any[];

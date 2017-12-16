@@ -127,3 +127,19 @@ export function getParentCtx(ctxs: object[] = []): Component {
         }
     }
 }
+
+// 如果arr中存在keys中的元素，那么keys中的元素排序提前
+export function resortArr(arr:any[] = [], ...keys) {
+    const newArr: any[] = []
+    keys.forEach(i => {
+        if (arr.includes(i)) {
+            newArr.push(i)
+        }
+    })
+    arr.forEach(i => {
+        if (!keys.includes(i)) {
+            newArr.push(i)
+        }
+    })
+    return newArr
+}

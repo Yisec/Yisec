@@ -7,6 +7,7 @@ import { addPipe } from "./execExpr";
 import forceUpdate, { addUpdateQueue } from "./forceUpdate";
 import { VirtualDOM } from "./d";
 import { FElement } from "./util";
+import router from './router';
 declare const _default: {
     Component: typeof Component;
     render: (Com: any, props: any, dom: FElement, vdom?: VirtualDOM | undefined) => Component;
@@ -21,6 +22,7 @@ declare const _default: {
     addPipe: (...ctxs: any[]) => void;
     forceUpdate: (afterFn?: () => void) => void;
     addUpdateQueue: (list?: (() => any)[], key?: any) => void;
+    router: (config: any) => void;
 };
 export default _default;
-export { Component, render, autorun, observer, isObserve, addObserve, observerDeep, register, addEventAlias, registerComponents, addPipe, forceUpdate, addUpdateQueue };
+export { Component, render, autorun, observer, isObserve, addObserve, observerDeep, register, addEventAlias, registerComponents, addPipe, forceUpdate, addUpdateQueue, router };

@@ -5,6 +5,7 @@ import { observer, addObserve, autorun, isObserve } from './autorun'
 import { FElement, merge, isFunction, isString } from "./util";
 import { VirtualDOM } from './d';
 
+const componentHook = '__yisec_component_hook__'
 /**
  * @param {any} Com
  * @param {*} props
@@ -12,6 +13,17 @@ import { VirtualDOM } from './d';
  * @returns {Component}
  */
 export default function render(Com: any, props: any, dom: FElement, vdom?:VirtualDOM) :Component {
+    // 卸载原有dom上挂载的component
+    if (
+        dom instanceof HTMLElement
+        && dom[componentHook]
+        && dom[componentHook].vdom
+        && !dom[componentHook].vdom.unmounted
+    ) {
+        dom[componentHook].__willUnmount()
+    }
+
+    // string/function -> Component
     if (isFunction(Com)) {
         // 如果函数没有继承Component，就把它当做render方法
         if (!(Com.prototype instanceof Component)) {
@@ -28,7 +40,10 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
     } else {
         console.error(`render first param should be a function`)
     }
+
     const ctx = <Component>new Com()
+    // 把组件实例挂载在dom上
+    dom instanceof HTMLElement && (dom[componentHook] = ctx)
 
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {
@@ -40,8 +55,10 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
     Object.defineProperty(ctx, 'props', {
         writable: false,
         enumerable: true,
-        value: observer(merge(props, Com.defaultProps || {})),
+        value: observer(merge({}, Com.defaultProps || {}, props)),
     })
+
+    // 处理computed的key，将其observer化，并挂载在组件实例上
     // 处理需要有个autorun包裹，然后
     // 需要obersev
     Object.keys(ctx.computed).forEach(key => {
@@ -58,12 +75,15 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
         )
     })
 
+    // 即将渲染
     ctx.willMount()
 
+    // 渲染进行中
     const ast = toAST(ctx.render())
     ast.ctx = ctx
     transform(ast, dom, [ctx, ctx.state, ctx.props], ctx.vdom)
 
+    // 渲染完毕
     ctx.didMount()
     return ctx
 }

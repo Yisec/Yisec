@@ -22,6 +22,7 @@ export class VirtualDOM {
     unmounted = false
     dom: Node
     ast: ASTNode
+    reRender: any // 用来重新执行render任务
     constructor(parent?: VirtualDOM) {
         if (parent) {
             this.parent = parent

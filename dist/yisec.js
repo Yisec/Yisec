@@ -18,6 +18,10 @@ function register(name, Com) {
   registerComponents[name] = Com;
 }
 
+/**
+ * 获取数据类型
+ * @param arg
+ */
 function getType(arg) {
     return Object.prototype.toString.call(arg).match(/\s(.+)]/)[1].toLowerCase();
 }
@@ -151,6 +155,27 @@ function getParentCtx() {
             return ctxs[i];
         }
     }
+}
+// 如果arr中存在keys中的元素，那么keys中的元素排序提前
+function resortArr() {
+    for (var _len8 = arguments.length, keys = Array(_len8 > 1 ? _len8 - 1 : 0), _key8 = 1; _key8 < _len8; _key8++) {
+        keys[_key8 - 1] = arguments[_key8];
+    }
+
+    var arr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+
+    var newArr = [];
+    keys.forEach(function (i) {
+        if (arr.includes(i)) {
+            newArr.push(i);
+        }
+    });
+    arr.forEach(function (i) {
+        if (!keys.includes(i)) {
+            newArr.push(i);
+        }
+    });
+    return newArr;
 }
 
 var classCallCheck = function (instance, Constructor) {
@@ -298,6 +323,7 @@ var toConsumableArray = function (arr) {
 
 /**
  * FVEvents 被用来统一处理事件监听
+ * 待对事件统一代理处理，类jQuery形式
  */
 var FVEvents = function () {
     function FVEvents() {
@@ -695,12 +721,15 @@ var parseExpr = function () {
         }
         // 去除字符串，剩下的都是变量
         // 对于关键字new 和 对象的支持很懵逼
-        var params = (body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串
-        .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key
-        .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*/g) || [] // 获取所有变量 .?aa
+        var params = (body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串 'ddd' "ddd"
+        .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key { aa: }
+        .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*\s*/g) || [] // 获取所有变量 .?aa
         ).filter(function (i) {
-            return i[0] !== '.';
-        }); // 去除.aa
+            return !/^\.|new\s+/.test(i);
+        }) // 去除.aa new
+        .map(function (i) {
+            return i.trim();
+        }); // 去除空格
         params = uniqueArr(params);
         var result = {
             params: params,
@@ -781,7 +810,7 @@ function getPipes(exprs, ctxs) {
  */
 function getValue(key, ctxs) {
     for (var i = 0; i < ctxs.length; i++) {
-        if (ctxs[i].hasOwnProperty(key)) {
+        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
             return ctxs[i][key];
         }
     }
@@ -833,6 +862,7 @@ function execExpr(expr, ctxs, fn) {
     var oldValue = void 0;
     var oldLen = void 0;
     var newValueCache = void 0;
+    var execTime = 0;
     function isEqual(newValue, oldValue) {
         if (newValue !== oldValue) {
             return false;
@@ -852,7 +882,10 @@ function execExpr(expr, ctxs, fn) {
             oldValue = newValueCache;
             newValueCache = newValue;
             var equal = isEqual(newValue, oldValue);
-            !equal && fn(newValue, oldValue);
+            if (!isEqual(newValue, oldValue)) {
+                execTime += 1;
+                fn(newValue, oldValue, execTime);
+            }
         },
         async: transform,
         expr: expr
@@ -1714,7 +1747,7 @@ function handleVFor(value, element, ctxs, vdom, node) {
             if (keyValue) {
                 // return
                 del.arr.forEach(function (key) {
-                    unmountChildren(cacheKeyVdom[key].vdom);
+                    cacheKeyVdom[key] && unmountChildren(cacheKeyVdom[key].vdom);
                     delete cacheKeyVdom[key]; // 删除缓存
                 });
             } else {
@@ -1772,13 +1805,13 @@ function addProperties(element, vdom, ctxs) {
     var info = {
         transformChildren: true
     };
-    Object.keys(node.props).forEach(function (key) {
+    resortArr(Object.keys(node.props), ':key', 'v-if', 'v-for', 'v-show').forEach(function (key) {
         var value = node.props[key];
         // 处理class
         if (handleClass(vdom, ctxs, key)) return;
+        var KEY = key.slice(1);
         // 处理事件绑定
         if (key.startsWith('@')) {
-            var KEY = key.slice(1);
             var aliasListeners = [];
             vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
                 if (eventAlias[KEY]) {
@@ -1796,8 +1829,7 @@ function addProperties(element, vdom, ctxs) {
                 }
             }));
         } else if (key.startsWith(':')) {
-            vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
-                var KEY = key.slice(1);
+            vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue, execTime) {
                 if (node.tagName == 'input' && KEY == 'checked') {
                     element[KEY] = newValue;
                     return;
@@ -1806,6 +1838,10 @@ function addProperties(element, vdom, ctxs) {
                     newValue = handleStyle(newValue);
                 }
                 element.setAttribute(KEY, newValue);
+                if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                    // 如果key发生变化，会卸载原有vdom，重新渲染
+                    handleKeyChange(vdom);
+                }
             }));
         } else if (key.startsWith('v-')) {
             // 显示
@@ -1835,6 +1871,10 @@ function addProperties(element, vdom, ctxs) {
         }
     });
     return info;
+}
+function handleKeyChange(vdom) {
+    unmountNode(vdom);
+    vdom.reRender && vdom.reRender();
 }
 /**
  * 处理v-if命令
@@ -1876,7 +1916,7 @@ function getProps(vdom, ctxs) {
         var value = node.props[key];
         if (/^[@:]/.test(key)) {
             var KEY = key.slice(1);
-            vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
+            vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue, execTime) {
                 // 如果key为props，则对props进行rest操作，方便子组件对数据的获取
                 if (KEY === 'props') {
                     Object.entries(newValue).forEach(function (_ref2) {
@@ -1888,6 +1928,10 @@ function getProps(vdom, ctxs) {
                     });
                 } else {
                     newProps[KEY] = newValue;
+                }
+                if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                    // 如果key发生变化，会卸载原有vdom，重新渲染
+                    handleKeyChange(vdom);
                 }
             }));
         } else {
@@ -1921,6 +1965,10 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
     var vdom = new VirtualDOM(parentVdom);
     vdom.ast = ast;
     vdom.ctxs = ctxs;
+    // 方便dom卸载后，重新渲染
+    vdom.reRender = function () {
+        return addElement(appendFn, ast, ctxs, parentVdom);
+    };
     if (/^[A-Z]/.test(ast.tagName)) {
         // 处理子组件
         var Com = getComponent(ast.tagName, ctxs);
@@ -2020,7 +2068,19 @@ function transform(ast, element, ctxs) {
     };
 }
 
+var componentHook = '__yisec_component_hook__';
+/**
+ * @param {any} Com
+ * @param {*} props
+ * @param {HTMLElement} dom
+ * @returns {Component}
+ */
 function render(Com, props, dom, vdom) {
+    // 卸载原有dom上挂载的component
+    if (dom instanceof HTMLElement && dom[componentHook] && dom[componentHook].vdom && !dom[componentHook].vdom.unmounted) {
+        dom[componentHook].__willUnmount();
+    }
+    // string/function -> Component
     if (isFunction(Com)) {
         // 如果函数没有继承Component，就把它当做render方法
         if (!(Com.prototype instanceof Component)) {
@@ -2060,6 +2120,8 @@ function render(Com, props, dom, vdom) {
         console.error('render first param should be a function');
     }
     var ctx = new Com();
+    // 把组件实例挂载在dom上
+    dom instanceof HTMLElement && (dom[componentHook] = ctx);
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {
         writable: false,
@@ -2069,8 +2131,9 @@ function render(Com, props, dom, vdom) {
     Object.defineProperty(ctx, 'props', {
         writable: false,
         enumerable: true,
-        value: observer(merge(props, Com.defaultProps || {}))
+        value: observer(merge({}, Com.defaultProps || {}, props))
     });
+    // 处理computed的key，将其observer化，并挂载在组件实例上
     // 处理需要有个autorun包裹，然后
     // 需要obersev
     Object.keys(ctx.computed).forEach(function (key) {
@@ -2084,13 +2147,168 @@ function render(Com, props, dom, vdom) {
             }
         }));
     });
+    // 即将渲染
     ctx.willMount();
+    // 渲染进行中
     var ast = toAST$1(ctx.render());
     ast.ctx = ctx;
     transform(ast, dom, [ctx, ctx.state, ctx.props], ctx.vdom);
+    // 渲染完毕
     ctx.didMount();
     return ctx;
 }
+
+var Router = {
+    hash: false,
+    routes: {},
+    push: function push(url) {
+        window.history.pushState({}, '', this.getFullPath(url));
+        this.handleUrlChange(url);
+    },
+    replace: function replace(url) {
+        window.history.replaceState({}, '', this.getFullPath(url));
+        this.handleUrlChange(url);
+    },
+    handleUrlChange: function handleUrlChange(url) {
+        var a = document.createElement('a');
+        a.href = url;
+        var path = a.pathname;
+        var result = match(path, this.routes);
+        if (result) {
+            var _router = result.router,
+                params = result.params,
+                value = result.value;
+            var component = value.component,
+                _value$props = value.props,
+                props = _value$props === undefined ? {} : _value$props;
+
+            render(component, Object.assign({}, props, { params: params }), document.body);
+        }
+    },
+    getFullPath: function getFullPath(url) {
+        return this.hash ? "" + location.pathname + location.search + "#" + url : url;
+    },
+    getPathname: function getPathname() {
+        return (this.hash ? location.hash.slice(1) : location.pathname) || '/';
+    }
+};
+function router(config) {
+    Router = Object.assign({}, Router, config);
+    window.addEventListener('popstate', function () {
+        Router.handleUrlChange(Router.getPathname());
+    });
+    Router.handleUrlChange(Router.getPathname());
+}
+register('Link', (_a = function (_Component) {
+    inherits(Link, _Component);
+
+    function Link() {
+        classCallCheck(this, Link);
+
+        var _this = possibleConstructorReturn(this, (Link.__proto__ || Object.getPrototypeOf(Link)).apply(this, arguments));
+
+        _this.click = function (e) {
+            var _this$props = _this.props,
+                click = _this$props.click,
+                _this$props$replace = _this$props.replace,
+                replace = _this$props$replace === undefined ? false : _this$props$replace,
+                _this$props$redirect = _this$props.redirect,
+                redirect = _this$props$redirect === undefined ? false : _this$props$redirect,
+                _this$props$href = _this$props.href,
+                href = _this$props$href === undefined ? '' : _this$props$href;
+
+            e.preventDefault();
+            click && click(e);
+            if (redirect) {
+                replace ? location.replace(href) : location.href = href;
+            } else if (replace) {
+                Router.replace(href);
+            } else {
+                Router.push(href);
+            }
+        };
+        return _this;
+    }
+
+    createClass(Link, [{
+        key: "render",
+        value: function render$$1() {
+            return "\n            <a :data-href=\"href\" @click=\"click\" :class=\"props.class\" :style=\"props.style\">\n                <slot />\n            </a>\n        ";
+        }
+    }]);
+    return Link;
+}(Component), _a.defaultProps = {
+    href: ''
+}, _a));
+// 路由匹配
+function match() {
+    var url = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+    var obj = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+    var urlItems = url.trim().split('/');
+    var params = {};
+    var router = '';
+    var matched = Object.keys(obj).some(function (route) {
+        var routeItems = route.trim().split('/');
+        router = '';
+        // 全局匹配的级别最低，一般用来处理404
+        if (route === '*') return false;
+        // 长度相等，或者路由以*为结尾并且routeItems不能比urlItems长
+        if (routeItems.length === urlItems.length || routeItems[routeItems.length - 1] === '*' && routeItems.length <= urlItems.length) {
+            params = {}; // 获取参数
+            router = route; // 匹配到的路由地址
+            return routeItems.every(function (i, index) {
+                var urlItemsItem = urlItems[index];
+                // 参数匹配
+                if (i.startsWith(':')) {
+                    // 对 /:id的支持
+                    var _i$slice$split = i.slice(1).split('@'),
+                        _i$slice$split2 = slicedToArray(_i$slice$split, 2),
+                        key = _i$slice$split2[0],
+                        reg = _i$slice$split2[1];
+
+                    params[key] = urlItemsItem;
+                    // 对正则表达式的支持 /:name@aa.+
+                    if (reg) {
+                        return new RegExp("^" + reg + "$").test(urlItemsItem);
+                    }
+                    return true;
+                }
+                // * 匹配所有
+                if (i === '*') {
+                    return true;
+                }
+                // 常规性匹配 Abc*
+                if (i.includes('*')) {
+                    var _reg = i.replace('*', '.*');
+                    return new RegExp("^" + _reg + "$").test(urlItemsItem);
+                }
+                // 纯文匹配
+                return i === urlItemsItem;
+            });
+        }
+        return false;
+    });
+    if (matched) {
+        return {
+            params: params,
+            url: url,
+            router: router,
+            value: obj[router]
+        };
+    } else if (obj['*']) {
+        // 观察是否配置了全局匹配
+        // 其实此时应该跳转404
+        return {
+            params: params,
+            url: url,
+            router: '*',
+            value: obj['*']
+        };
+    }
+    return null;
+}
+var _a;
 
 var index = {
     Component: Component,
@@ -2105,7 +2323,8 @@ var index = {
     registerComponents: registerComponents,
     addPipe: addPipe,
     forceUpdate: forceUpdate,
-    addUpdateQueue: addUpdateQueue
+    addUpdateQueue: addUpdateQueue,
+    router: router
 };
 
 exports['default'] = index;
@@ -2122,6 +2341,7 @@ exports.registerComponents = registerComponents;
 exports.addPipe = addPipe;
 exports.forceUpdate = forceUpdate;
 exports.addUpdateQueue = addUpdateQueue;
+exports.router = router;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

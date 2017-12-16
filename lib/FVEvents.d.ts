@@ -1,5 +1,6 @@
 /**
  * FVEvents 被用来统一处理事件监听
+ * 待对事件统一代理处理，类jQuery形式
  */
 export declare type Item = [string, any];
 export default class FVEvents {

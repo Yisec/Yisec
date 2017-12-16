@@ -4,6 +4,11 @@
 
 ## hello world
 ```js
+import { render } from 'yisec'
+render(`Hello World`, {}, document.body)
+```
+
+```js
 import {observer, render, Component} from 'yisec'
 
 const store = observer({
@@ -14,9 +19,11 @@ const store = observer({
 })
 
 class Hello extends Component {
-    template = `
-        <h1 @click="store.addNum">hello world {{store.num}}</h1>
-    `
+    render() {
+        return (`
+            <h1 @click="store.addNum">click to add {{store.num}}</h1>
+        `)
+    }
 }
 
 render(Hello, {store}, document.body)
@@ -24,10 +31,9 @@ render(Hello, {store}, document.body)
 
 ## observe/autorun
 通过autorun包裹依赖observer化数据的函数，当数据变化时，可重新执行函数。得益于这种实现，可以对View层进行最颗粒化更新。也只有当被依赖数据发生变化时，View才会执行更新。
-目前采用同步更新模式，即一旦变量发生变化，就会立即触发依赖更新。异步更新，正在计划中。
 
 ## context
-template在被解析的时候，会去执行表达式。表达式执行环境的作用域从内到外的顺序为[this, this.state, this.props]。
+template在被解析的时候，会去执行表达式。表达式执行环境的作用域从内到外的顺序为[this, this.state, this.props, window]。
 对于简单组件，可以不用声明props、state直接获取state/props上的key
 
 ## Component
@@ -198,7 +204,7 @@ mclass则是对module css的支持
 ## 插件机制
 还没有想好
 比如更换template语法，其他语法转template语法
-处理property 
+处理property
 ```js
 yisec.propertyPlugin('class', function(ctxs, props, execExpr, element) {
 
@@ -209,13 +215,12 @@ yisec.propertyPlugin('after-exec-expr', function(ctxs, ) {
 ```
 
 ## 自定义解析规则
-替换解析关键字 {{}} 为 {}
-还没有想好 
+待支持
 
 ## JSX
 暂不支持
 JSX的优势，在于JSX属于js语法的增强，JSX可以直接使用变量所处作用域的变量，而不用像使用template模式的框架蹩脚的把需要用到的变量挂载在组件上。但是目前，暂无计划支持JSX。
 
-## chrome devtool 
+## chrome devtool
 等待支持
 

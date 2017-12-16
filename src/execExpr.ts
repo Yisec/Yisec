@@ -36,7 +36,7 @@ function getPipes(exprs, ctxs) {
  */
 function getValue(key, ctxs) {
     for (let i=0; i< ctxs.length; i++) {
-        if (ctxs[i].hasOwnProperty(key)) {
+        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
             return ctxs[i][key]
         }
     }
@@ -76,10 +76,11 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
  * @param {(result: any) => void} fn
  * @returns
  */
-export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void, transform = false ) {
+export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue: any, execTime: number) => void, transform = false ) {
     let oldValue: any
     let oldLen: number
     let newValueCache: any
+    let execTime = 0
     function isEqual(newValue, oldValue) {
         if (newValue !== oldValue) {
             return false
@@ -99,7 +100,10 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
             oldValue = newValueCache
             newValueCache = newValue
             const equal = isEqual(newValue, oldValue)
-            !equal && fn(newValue, oldValue)
+            if (!isEqual(newValue, oldValue)) {
+                execTime += 1
+                fn(newValue, oldValue, execTime)
+            }
         },
         async: transform, // 是否需要一步执行回调
         expr,

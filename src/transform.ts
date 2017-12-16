@@ -1,5 +1,5 @@
 import { EventAlias, VirtualDOM, ASTNode, Props } from "./d";
-import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString } from './util'
+import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString, resortArr } from './util'
 
 import { registerComponents } from "./register";
 import { autorun, observer, addObserve } from './autorun'
@@ -62,7 +62,7 @@ function handleVFor(value, element, ctxs, vdom, node) {
                 if (keyValue) {
                     // return
                     del.arr.forEach(key => {
-                        unmountChildren(cacheKeyVdom[key].vdom)
+                        cacheKeyVdom[key] && unmountChildren(cacheKeyVdom[key].vdom)
                         delete cacheKeyVdom[key] // 删除缓存
                     })
                 } else {
@@ -128,14 +128,18 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
     const info = {
         transformChildren: true,
     }
-    Object.keys(node.props).forEach(key => {
+
+    resortArr(
+        Object.keys(node.props),
+        ':key', 'v-if', 'v-for', 'v-show'
+    ).forEach(key => {
         const value = node.props[key]
         // 处理class
         if (handleClass(vdom, ctxs, key)) return
 
+        const KEY = key.slice(1)
         // 处理事件绑定
         if (key.startsWith('@')) {
-            const KEY = key.slice(1)
             let aliasListeners: EventAlias[] = []
             vdom.exprs.push(
                 execExpr(value, ctxs, (newValue, oldValue) => {
@@ -158,8 +162,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
         // 处理属性表达式
         else if (key.startsWith(':')) {
             vdom.exprs.push(
-                execExpr(value, ctxs, (newValue, oldValue) => {
-                    const KEY = key.slice(1)
+                execExpr(value, ctxs, (newValue, oldValue, execTime) => {
                     if (node.tagName == 'input' && KEY == 'checked') {
                         element[KEY] = newValue
                         return
@@ -169,6 +172,11 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                         newValue = handleStyle(newValue)
                     }
                     element.setAttribute(KEY, newValue)
+
+                    if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                        // 如果key发生变化，会卸载原有vdom，重新渲染
+                        handleKeyChange(vdom)
+                    }
                 })
             )
         }
@@ -207,6 +215,11 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
     })
 
     return info
+}
+
+function handleKeyChange(vdom: VirtualDOM) {
+    unmountNode(vdom)
+    vdom.reRender && vdom.reRender()
 }
 
 /**
@@ -250,7 +263,7 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
         if (/^[@:]/.test(key)) {
             const KEY = key.slice(1)
             vdom.exprs.push(
-                execExpr(value, ctxs, (newValue, oldValue) => {
+                execExpr(value, ctxs, (newValue, oldValue, execTime) => {
                     // 如果key为props，则对props进行rest操作，方便子组件对数据的获取
                     if (KEY === 'props') {
                         Object.entries(newValue).forEach(([k, v]) => {
@@ -258,6 +271,11 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
                         })
                     } else {
                         newProps[KEY] = newValue
+                    }
+
+                    if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                        // 如果key发生变化，会卸载原有vdom，重新渲染
+                        handleKeyChange(vdom)
                     }
                 })
             )
@@ -294,6 +312,8 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
     const vdom = new VirtualDOM(parentVdom)
     vdom.ast = ast
     vdom.ctxs = ctxs
+    // 方便dom卸载后，重新渲染
+    vdom.reRender = () => addElement(appendFn, ast, ctxs, parentVdom)
 
     if (/^[A-Z]/.test(ast.tagName)) {
         // 处理子组件
