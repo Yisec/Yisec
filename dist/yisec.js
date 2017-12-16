@@ -18,10 +18,6 @@ function register(name, Com) {
   registerComponents[name] = Com;
 }
 
-/**
- * 获取数据类型
- * @param arg
- */
 function getType(arg) {
     return Object.prototype.toString.call(arg).match(/\s(.+)]/)[1].toLowerCase();
 }
@@ -441,10 +437,6 @@ function addUpdateQueue() {
     }
     clearTimeout(timeout);
     (_queue = queue).push.apply(_queue, toConsumableArray(list));
-    // if (!time) {
-    //     time = Date.now()
-    // }
-    // realtime = Date.now()
     // setTimeout执行时间明显比0ms要长很多，但是Performance并没有记录函数执行
     // 经排查发现是mac上chrome的页面滚动阻塞了异步事件的执行
     timeout = setTimeout(forceUpdate, 0);
@@ -707,7 +699,7 @@ function autorun(fn) {
         // console.log('after', depends.map(i => i.key))
         isFunction(options.callback) && options.callback(result);
     };
-    // wrapFn.async = options.async
+    wrapFn.options = options;
     // 立即执行
     wrapFn();
     return destory;
@@ -860,18 +852,15 @@ function execExpr(expr, ctxs, fn) {
     var transform = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
 
     var oldValue = void 0;
-    var oldLen = void 0;
     var newValueCache = void 0;
     var execTime = 0;
     function isEqual(newValue, oldValue) {
         if (newValue !== oldValue) {
             return false;
         }
+        // 数组一直变化
         if (isArray(newValue)) {
-            var newLen = newValue.length;
-            var equal = newLen === oldLen;
-            oldLen = newLen;
-            return equal;
+            return false;
         }
         return true;
     }
@@ -1730,6 +1719,7 @@ function handleVFor(value, element, ctxs, vdom, node) {
                 item: item
             };
         });
+        // console.log(newKeyValue)
         var newKyes = newKeyValue.map(function (i) {
             return i.key;
         });

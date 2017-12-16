@@ -52,6 +52,8 @@ function handleVFor(value, element, ctxs, vdom, node) {
                 }
             })
 
+            // console.log(newKeyValue)
+
             const newKyes = newKeyValue.map(i => i.key)
             const { add, del, noChange } = diff(cacheKeys, newKyes, keyValue)
             if (noChange) return

@@ -228,7 +228,7 @@ export function autorun(fn: ()=> void, options = {}) {
         // console.log('after', depends.map(i => i.key))
         isFunction(options.callback) && options.callback(result)
     }
-    // wrapFn.async = options.async
+    wrapFn.options = options
 
     // 立即执行
     wrapFn()

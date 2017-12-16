@@ -3,8 +3,6 @@ export type addUpdateQueueList = UpdateFn[]
 let queue:addUpdateQueueList = []
 let timeout
 let isUpdating = false
-let time = 0
-let realtime = 0
 
 export function addUpdateQueue(list: addUpdateQueueList = [], key?) {
     // return list.forEach(fn => fn())
@@ -16,10 +14,6 @@ export function addUpdateQueue(list: addUpdateQueueList = [], key?) {
     }
     clearTimeout(timeout)
     queue.push(...list)
-    // if (!time) {
-    //     time = Date.now()
-    // }
-    // realtime = Date.now()
     // setTimeout执行时间明显比0ms要长很多，但是Performance并没有记录函数执行
     // 经排查发现是mac上chrome的页面滚动阻塞了异步事件的执行
     timeout = setTimeout(forceUpdate, 0)
@@ -40,6 +34,5 @@ export default function forceUpdate(afterFn = () => {}) {
     isUpdating = false
     queue = []
     // console.log('执行时长', Date.now() - time)
-    time = 0
     afterFn()
 }

@@ -85,11 +85,9 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
         if (newValue !== oldValue) {
             return false
         }
+        // 数组一直变化
         if (isArray(newValue)) {
-            const newLen = newValue.length
-            const equal = newLen === oldLen
-            oldLen = newLen
-            return equal
+            return false
         }
         return true
     }
