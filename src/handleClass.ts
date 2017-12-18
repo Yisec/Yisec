@@ -15,11 +15,16 @@ export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
     const classProperties = [
         `@${type}class`,
         `${type}class`,
-        `@${type}mclass`,
-        `${type}mclass`,
     ]
 
     return Object.keys(ast.props).some(key => classProperties.includes(key))
+}
+
+function handleModuleCss(classNames, moduleMap) {
+    return classNames.trim().split(/\s+/g).map(key => {
+        // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
+        return moduleMap[key] || key
+    }).join(' ')
 }
 
 // class mclass
@@ -28,37 +33,31 @@ export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
 export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string, type: string = '') :boolean {
     const { ast: node, dom: element } = vdom
     const value = node.props[key]
-    const classNames = vdom.classNames = vdom.classNames || {}
+    const { classNames } = vdom
+    const { moduleCss } = ctxs[0]
 
     type += (type ? '-' : '')
 
     if (key === `:${type}class`) {
         vdom.exprs.push(
             execExpr(value, ctxs, (newValue, oldValue) => {
-                classNames[key] = toClassNames(newValue)
+                let classes = toClassNames(newValue)
+                if (moduleCss) {
+                    classes = handleModuleCss(classes, moduleCss)
+                }
+                classNames[key] = classes
+
                 updateClassName(element, classNames)
             })
 
         )
     } else if (key === `${type}class`) {
-        classNames[key] = value
-        updateClassName(element, classNames)
+        let classes = value
+        if (moduleCss) {
+            classes = handleModuleCss(classes, moduleCss)
+        }
+        classNames[key] = classes
 
-    } else if (key === `:${type}mclass`) {
-        vdom.exprs.push(
-            execExpr(value, ctxs, (newValue, oldValue) => {
-                newValue = toClassNames(newValue).split(/\s+/g).map(key => {
-                    return (ctxs[0].mclass || {})[key]
-                }).join(' ')
-                classNames[key] = newValue
-                updateClassName(element, classNames)
-            })
-        )
-
-    } else if (key === `${type}mclass`) {
-        classNames[key] = value.split(/\s+/g).map(key => {
-            return (ctxs[0].mclass || {})[key]
-        }).join(' ')
         updateClassName(element, classNames)
 
     } else {

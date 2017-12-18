@@ -2,6 +2,14 @@
 
 使用observe/autorun/component来构建web app
 
+## install
+```bash
+# npm use
+npm install yisec
+# yarn use
+yarn add yisec
+```
+
 ## hello world
 ```js
 import { render } from 'yisec'
@@ -187,15 +195,21 @@ addPipe({
 
 ## class
 ```js
-`
-<div class="aa" :class="[name]" mclass="xxx" :mclass="[name]"
-    enter-class="aa" :enter-class="[name]" enter-mclass="xxx" :enter-mclass="[name]"
-    leave-class="aa" :leave-class="[name]" leave-mclass="xxx" :leave-mclass="[name]"
-    ></div>
-`
+import moduleCss from './index.scss'
+class extends Component {
+    moduleCss = moduleCss
+    render() {
+        return (`
+            <div class="aa" :class="[name]"
+                enter-class="aa" :enter-class="[name]"
+                leave-class="aa" :leave-class="[name]"
+                ></div>
+        `)
+    }
+}
 ```
 class表示正常的class属性，对于@class支持object/arr/string三种数据类型的转换
-mclass则是对module css的支持
+component上添加moduleCss属性，即可增加对moduleCss的支持
 ### 生命周期
 - class dom被创建时执行
 - enter-class dom创建后执行

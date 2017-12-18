@@ -58,11 +58,10 @@ function handleVFor(value, element, ctxs, vdom, node) {
             const { add, del, noChange } = diff(cacheKeys, newKyes, keyValue)
             if (noChange) return
             cacheKeys = newKyes
-            // console.log('数组更新:', newValue, add, del)
+            // 如果执行过
             if (isExeced) {
                 // 存在key，卸载需要删除的key对应的vdom，否则整体卸载
                 if (keyValue) {
-                    // return
                     del.arr.forEach(key => {
                         cacheKeyVdom[key] && unmountChildren(cacheKeyVdom[key].vdom)
                         delete cacheKeyVdom[key] // 删除缓存

@@ -107,7 +107,9 @@ function merge() {
     var base = anys[0];
     anys.slice(1).forEach(function (any) {
         Object.keys(any).forEach(function (key) {
-            base[key] = any[key];
+            if (base[key] === undefined) {
+                base[key] = any[key];
+            }
         });
     });
     return base;
@@ -374,6 +376,7 @@ var VirtualDOM = function () {
         this.children = [];
         this.ctxs = [];
         this.unmounted = false;
+        this.classNames = {};
         if (parent) {
             this.parent = parent;
             this.parent.children.push(this);
@@ -894,10 +897,16 @@ function testClass(vdom) {
         element = vdom.dom;
 
     type += type ? '-' : '';
-    var classProperties = ["@" + type + "class", type + "class", "@" + type + "mclass", type + "mclass"];
+    var classProperties = ["@" + type + "class", type + "class"];
     return Object.keys(ast.props).some(function (key) {
         return classProperties.includes(key);
     });
+}
+function handleModuleCss(classNames, moduleMap) {
+    return classNames.trim().split(/\s+/g).map(function (key) {
+        // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
+        return moduleMap[key] || key;
+    }).join(' ');
 }
 // class mclass
 // enter-class enter-mclass
@@ -908,28 +917,25 @@ function handleClass(vdom, ctxs, key) {
         element = vdom.dom;
 
     var value = node.props[key];
-    var classNames = vdom.classNames = vdom.classNames || {};
+    var classNames = vdom.classNames;
+    var moduleCss = ctxs[0].moduleCss;
+
     type += type ? '-' : '';
     if (key === ":" + type + "class") {
         vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
-            classNames[key] = toClassNames(newValue);
+            var classes = toClassNames(newValue);
+            if (moduleCss) {
+                classes = handleModuleCss(classes, moduleCss);
+            }
+            classNames[key] = classes;
             updateClassName(element, classNames);
         }));
     } else if (key === type + "class") {
-        classNames[key] = value;
-        updateClassName(element, classNames);
-    } else if (key === ":" + type + "mclass") {
-        vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
-            newValue = toClassNames(newValue).split(/\s+/g).map(function (key) {
-                return (ctxs[0].mclass || {})[key];
-            }).join(' ');
-            classNames[key] = newValue;
-            updateClassName(element, classNames);
-        }));
-    } else if (key === type + "mclass") {
-        classNames[key] = value.split(/\s+/g).map(function (key) {
-            return (ctxs[0].mclass || {})[key];
-        }).join(' ');
+        var classes = value;
+        if (moduleCss) {
+            classes = handleModuleCss(classes, moduleCss);
+        }
+        classNames[key] = classes;
         updateClassName(element, classNames);
     } else {
         return false;
@@ -1731,11 +1737,10 @@ function handleVFor(value, element, ctxs, vdom, node) {
 
         if (noChange) return;
         cacheKeys = newKyes;
-        // console.log('数组更新:', newValue, add, del)
+        // 如果执行过
         if (isExeced) {
             // 存在key，卸载需要删除的key对应的vdom，否则整体卸载
             if (keyValue) {
-                // return
                 del.arr.forEach(function (key) {
                     cacheKeyVdom[key] && unmountChildren(cacheKeyVdom[key].vdom);
                     delete cacheKeyVdom[key]; // 删除缓存
@@ -2121,7 +2126,7 @@ function render(Com, props, dom, vdom) {
     Object.defineProperty(ctx, 'props', {
         writable: false,
         enumerable: true,
-        value: observer(merge({}, Com.defaultProps || {}, props))
+        value: observer(merge(props, Com.defaultProps || {}))
     });
     // 处理computed的key，将其observer化，并挂载在组件实例上
     // 处理需要有个autorun包裹，然后

@@ -16,6 +16,7 @@ export declare class VirtualDOM {
     ctxs: any[];
     component: Component;
     unmounted: boolean;
+    classNames: {};
     dom: Node;
     ast: ASTNode;
     reRender: any;

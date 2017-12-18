@@ -74,6 +74,7 @@ register('Link', class Link extends Component{
         const { click, replace = false, redirect = false, href = '' } = this.props
         e.preventDefault()
         click && click(e)
+
         if (redirect) {
             replace ? location.replace(href) : location.href = href
         } else if (replace) {

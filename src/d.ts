@@ -20,6 +20,7 @@ export class VirtualDOM {
     ctxs: any[] = []
     component: Component
     unmounted = false
+    classNames = {}
     dom: Node
     ast: ASTNode
     reRender: any // 用来重新执行render任务

@@ -55,7 +55,7 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
     Object.defineProperty(ctx, 'props', {
         writable: false,
         enumerable: true,
-        value: observer(merge({}, Com.defaultProps || {}, props)),
+        value: observer(merge(props, Com.defaultProps || {})),
     })
 
     // 处理computed的key，将其observer化，并挂载在组件实例上
