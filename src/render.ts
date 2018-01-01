@@ -4,8 +4,8 @@ import transform from './transform'
 import { observer, addObserve, autorun, isObserve } from './autorun'
 import { FElement, merge, isFunction, isString } from "./util";
 import { VirtualDOM } from './d';
+import { COMPONENT_DOM_HOOK } from './config';
 
-const componentHook = '__yisec_component_hook__'
 /**
  * @param {any} Com
  * @param {*} props
@@ -16,11 +16,11 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
     // 卸载原有dom上挂载的component
     if (
         dom instanceof HTMLElement
-        && dom[componentHook]
-        && dom[componentHook].vdom
-        && !dom[componentHook].vdom.unmounted
+        && dom[COMPONENT_DOM_HOOK]
+        && dom[COMPONENT_DOM_HOOK].vdom
+        && !dom[COMPONENT_DOM_HOOK].vdom.unmounted
     ) {
-        dom[componentHook].__willUnmount()
+        dom[COMPONENT_DOM_HOOK].__willUnmount()
     }
 
     // string/function -> Component
@@ -43,7 +43,7 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
 
     const ctx = <Component>new Com()
     // 把组件实例挂载在dom上
-    dom instanceof HTMLElement && (dom[componentHook] = ctx)
+    dom instanceof HTMLElement && (dom[COMPONENT_DOM_HOOK] = ctx)
 
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {

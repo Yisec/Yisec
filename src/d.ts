@@ -65,6 +65,7 @@ export class ASTNode {
     exprs = []
     value: string // 文本节点值
     dom: Node // token节点上挂载的DOM
+    isSVG = false // 是不是svg节点
     ctx: object
     constructor(tagName: string = '') {
         this.tagName = tagName

@@ -55,6 +55,15 @@ template在被解析的时候，会去执行表达式。表达式执行环境的
 - willUnmount
 父组件didMount/willUnmount会在非异步加载子组件的didMount/willUnmount完成后被触发
 
+### 指令
+- ys:if 组件是否显示
+- ys:for 处理for循环
+- ys:show 组件是否显示
+- ys:bgd 处理background，不用url()包裹
+
+### 自定义指令
+暂无
+
 ### 异步加载
 除了根组件以外的其他组件，支持异步加载。这样就可以webpack dynamic import无缝对接啦~
 ```js
@@ -210,23 +219,11 @@ class extends Component {
 ```
 class表示正常的class属性，对于@class支持object/arr/string三种数据类型的转换
 component上添加moduleCss属性，即可增加对moduleCss的支持
+
 ### 生命周期
 - class dom被创建时执行
 - enter-class dom创建后执行
 - leave-class dom被卸载前执行需要与leaveTime属性配合使用
-
-## 插件机制
-还没有想好
-比如更换template语法，其他语法转template语法
-处理property
-```js
-yisec.propertyPlugin('class', function(ctxs, props, execExpr, element) {
-
-})
-yisec.propertyPlugin('after-exec-expr', function(ctxs, ) {
-
-})
-```
 
 ## 自定义解析规则
 待支持

@@ -25,7 +25,7 @@ function handlePipe(...fns) {
 
 function getPipes(exprs, ctxs) {
     return handlePipe(
-        ...exprs.map(expr => execExprIm(expr, [...ctxs, ...pipes]))
+        ...exprs.map(expr => execExprIm(expr, [...ctxs, ...pipes, window]))
     )
 }
 
@@ -55,6 +55,7 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
     const parseResult = parseExpr(inputExpr)
     const input = parseResult.fn(...parseResult.params.map(key => getValue(key, ctxs)))
 
+    // with语句的性能太差，弃之
     // const names = ctxs.map((i, index) => '__with__local__' + index)
     // let body = `return ${inputExpr}`
     // names.reverse().forEach(i => {
@@ -63,7 +64,7 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
     //      }`
     // })
     // const input = new Function(...names, body)(...ctxs)
-    if (pipes.length > 1) {
+    if (pipes.length >= 1) {
         return getPipes(pipeExprs, ctxs)(input)
     }
     return input
@@ -103,7 +104,6 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
                 fn(newValue, oldValue, execTime)
             }
         },
-        async: transform, // 是否需要一步执行回调
         expr,
     })
 }

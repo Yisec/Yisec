@@ -156,11 +156,8 @@ function getParentCtx() {
 }
 // 如果arr中存在keys中的元素，那么keys中的元素排序提前
 function resortArr() {
-    for (var _len8 = arguments.length, keys = Array(_len8 > 1 ? _len8 - 1 : 0), _key8 = 1; _key8 < _len8; _key8++) {
-        keys[_key8 - 1] = arguments[_key8];
-    }
-
     var arr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+    var keys = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
     var newArr = [];
     keys.forEach(function (i) {
@@ -174,6 +171,13 @@ function resortArr() {
         }
     });
     return newArr;
+}
+function isComponent(component, ast) {
+    if (isPromise(component) || isFunction(component) || isString(component)) {
+        return true;
+    }
+    console.error(component, ast.tagName + " should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Fv.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6");
+    return false;
 }
 
 var classCallCheck = function (instance, Constructor) {
@@ -322,6 +326,7 @@ var toConsumableArray = function (arr) {
 /**
  * FVEvents 被用来统一处理事件监听
  * 待对事件统一代理处理，类jQuery形式
+ * 现在，我们还是没有对事件进行全局挂载处理，而是在每个dom上绑定事件，性能较差，待优化
  */
 var FVEvents = function () {
     function FVEvents() {
@@ -417,6 +422,7 @@ var ASTNode = function ASTNode() {
     this.props = {}; // props
     this.type = 'element'; // 节点类型
     this.exprs = [];
+    this.isSVG = false; // 是不是svg节点
     this.tagName = tagName;
     // 判断是不是组件
     if (/^[A-Z]/.test(tagName)) {
@@ -462,6 +468,12 @@ function forceUpdate() {
     // console.log('执行时长', Date.now() - time)
     afterFn();
 }
+
+// yisec指令前缀
+var DIRECTIVEPREV = 'ys:';
+// 组件挂载到dom上的key
+var COMPONENT_DOM_HOOK = '__yisec_component_hook__';
+var OBSERVE_ID = '__observeID__';
 
 var Observe = function Observe() {
     classCallCheck(this, Observe);
@@ -522,18 +534,15 @@ var ObserveId = function ObserveId() {
 
 ObserveId.id = 0;
 function addObserverId(newObj) {
-    if (newObj.__observeId__ instanceof ObserveId) {
+    if (newObj[OBSERVE_ID] instanceof ObserveId) {
         return;
     }
-    Object.defineProperty(newObj, '__observeId__', {
+    Object.defineProperty(newObj, OBSERVE_ID, {
         value: new ObserveId(),
         configurable: false,
         writable: false,
         enumerable: false
     });
-}
-function isObserve(obj) {
-    return obj instanceof Observe || isArray(obj) && obj.__observe__;
 }
 function addObserve(ctx, key) {
     var defaultValue = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : ctx[key];
@@ -541,11 +550,11 @@ function addObserve(ctx, key) {
 
     addObserverId(ctx);
     // 这里隐含了一个bug，如果state,prop被更改，就懵逼了，因此设置state、props writable: false
-    if (ctx.__observeId__.keys.includes(key)) {
+    if (ctx[OBSERVE_ID].keys.includes(key)) {
         ctx[key] = defaultValue; // 数据已监听，则更新
         return;
     } else {
-        ctx.__observeId__.keys.push(key);
+        ctx[OBSERVE_ID].keys.push(key);
     }
     var value = bindContext(defaultValue, ctx);
     // 依赖此key的函数
@@ -583,11 +592,15 @@ function observeArr() {
     var arr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
     var options = arguments[1];
 
+    // 判断是否observe过
+    if (isObserve(arr)) {
+        return arr;
+    }
     var newArr = arr.map(function (item) {
         return observer(item);
     });
-    Object.defineProperty(newArr, '__observe__', {
-        value: true,
+    Object.defineProperty(newArr, OBSERVE_ID, {
+        value: new ObserveId(),
         enumerable: false,
         writable: false,
         configurable: false
@@ -641,6 +654,9 @@ function observeObj() {
         addObserve(newObj, key, obj[key], options);
     });
     return newObj;
+}
+function isObserve(obj) {
+    return obj instanceof Observe || isArray(obj) && obj[OBSERVE_ID] instanceof Observe;
 }
 /**
  * 构造一个新的observe对象
@@ -795,7 +811,7 @@ function handlePipe() {
 }
 function getPipes(exprs, ctxs) {
     return handlePipe.apply(undefined, toConsumableArray(exprs.map(function (expr) {
-        return execExprIm(expr, [].concat(toConsumableArray(ctxs), pipes));
+        return execExprIm(expr, [].concat(toConsumableArray(ctxs), pipes, [window]));
     })));
 }
 /**
@@ -831,6 +847,7 @@ function execExprIm() {
     var input = parseResult.fn.apply(parseResult, toConsumableArray(parseResult.params.map(function (key) {
         return getValue(key, ctxs);
     })));
+    // with语句的性能太差，弃之
     // const names = ctxs.map((i, index) => '__with__local__' + index)
     // let body = `return ${inputExpr}`
     // names.reverse().forEach(i => {
@@ -839,7 +856,7 @@ function execExprIm() {
     //      }`
     // })
     // const input = new Function(...names, body)(...ctxs)
-    if (pipes.length > 1) {
+    if (pipes.length >= 1) {
         return getPipes(pipeExprs, ctxs)(input);
     }
     return input;
@@ -852,8 +869,6 @@ function execExprIm() {
  * @returns
  */
 function execExpr(expr, ctxs, fn) {
-    var transform = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
-
     var oldValue = void 0;
     var newValueCache = void 0;
     var execTime = 0;
@@ -879,7 +894,6 @@ function execExpr(expr, ctxs, fn) {
                 fn(newValue, oldValue, execTime);
             }
         },
-        async: transform,
         expr: expr
     });
 }
@@ -908,9 +922,10 @@ function handleModuleCss(classNames, moduleMap) {
         return moduleMap[key] || key;
     }).join(' ');
 }
-// class mclass
-// enter-class enter-mclass
-// leave-class leave-mclass
+// class
+// enter-class
+// leave-class
+// 
 function handleClass(vdom, ctxs, key) {
     var type = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : '';
     var node = vdom.ast,
@@ -1113,6 +1128,9 @@ Component.defaultProps = {};
 // 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层
 // 自身的逻辑层可以作为控制器
 // 再加一个Model作为数据来源
+/**
+ * 半闭合标签 可以以 > 或 /> 结尾
+ */
 var selfCloseElements = ['img', 'br', 'hr', 'input'];
 // 我们应该在解析关键字的同时，保留原始字符串
 var M = {
@@ -1138,15 +1156,15 @@ var M = {
     },
     get TAG_NAME() {
         return (/^([a-zA-Z]-?([a-zA-Z0-9]-?)*)\s*/
-        );
+        ); // Ass-dd-09
     },
     get PROPERTY_NAME() {
-        return (/^([a-zA-Z@:]-?([a-zA-Z0-9]-?)*)\s*/
-        );
+        return (/^([a-zA-Z@:]-?([a-zA-Z0-9:]-?)*)\s*/
+        ); // @:-aaaa
     },
     get PROPERTY_VALUE() {
-        return (/^"([^"]*)"\s*/
-        );
+        return (/^"([^"]*)"\s*|^{([^}]*)}\s*/
+        ); // 支持 "xxx" {xc}
     },
     get EXPR() {
         return (/^{{2}(((?!}{2}).)*)\}{2}\s*/
@@ -1275,9 +1293,11 @@ function getToken() {
         ) {
                 // 向前读，需要是
                 var _ref17 = localStr.match(M.PROPERTY_VALUE) || ['', ''],
-                    _ref18 = slicedToArray(_ref17, 2),
+                    _ref18 = slicedToArray(_ref17, 3),
                     _matchStr7 = _ref18[0],
-                    _value7 = _ref18[1];
+                    strValue = _ref18[1],
+                    _ref18$ = _ref18[2],
+                    _value7 = _ref18$ === undefined ? strValue : _ref18$;
 
                 token.push(new TokenElement('PROPERTY_VALUE', index, _value7, _matchStr7));
                 index += _matchStr7.length;
@@ -1411,99 +1431,32 @@ function toAST() {
     }
     return root;
 }
+// 处理svg节点
+function handleSVG(node) {
+    var isSVG = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+    if (isSVG || node.tagName === 'svg') {
+        isSVG = true;
+        node.isSVG = isSVG;
+    }
+    node.children.forEach(function (node) {
+        return handleSVG(node, isSVG);
+    });
+    return node;
+}
 var cache = {};
 // 字符串 => ast
 var toAST$1 = function () {
     var template = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
     // 使用缓存，不用再ast => dom的时候对ast进行修改
-    return cache[template] = cache[template] || toAST(getToken(template), template);
+    if (!cache[template]) {
+        var node = toAST(getToken(template), template);
+        // 为node添加isSVG标示
+        cache[template] = handleSVG(node);
+    }
+    return cache[template];
 };
-
-// 处理数组diff 返回数组变更
-function diff() {
-    var oldArr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
-    var newArr = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-    var isKeyExist = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
-
-    newArr = uniqueArr(newArr);
-    // getDelete
-    var deleteArr = [];
-    var keepArr = [];
-    var addAll = false;
-    var prevIndex = -2;
-    var add = void 0;
-    if (!isKeyExist) {
-        return {
-            del: {
-                arr: oldArr
-            },
-            add: {
-                before: {
-                    key: null,
-                    arr: newArr
-                },
-                after: {
-                    key: null,
-                    arr: []
-                }
-            },
-            noChange: false
-        };
-    }
-    for (var i = 0; i < oldArr.length; i++) {
-        var item = oldArr[i];
-        var INDEX = newArr.indexOf(item);
-        // console.log(INDEX, item)
-        if (INDEX < 0) {
-            deleteArr.push(item);
-        } else {
-            // 判断是否在newArr中连续出现
-            if (prevIndex !== -2 && prevIndex + 1 !== INDEX) {
-                addAll = true;
-                deleteArr = oldArr;
-                keepArr = [];
-                break;
-            } else {
-                keepArr.push(item);
-            }
-            prevIndex = INDEX;
-        }
-    }
-    if (addAll || !keepArr.length) {
-        add = {
-            before: {
-                key: null,
-                arr: newArr
-            },
-            after: {
-                key: 0,
-                arr: []
-            }
-        };
-    } else {
-        var start = newArr.indexOf(keepArr[0]);
-        var end = newArr.indexOf(keepArr[keepArr.length - 1]);
-        add = {
-            before: {
-                key: keepArr[0],
-                arr: newArr.slice(0, start)
-            },
-            after: {
-                key: keepArr[keepArr.length - 1],
-                arr: newArr.slice(end + 1)
-            }
-        };
-    }
-    // 计算新增数组
-    return {
-        del: {
-            arr: deleteArr
-        },
-        add: add,
-        noChange: add.before.arr.length === 0 && add.after.arr.length === 0 && deleteArr.length === 0
-    };
-}
 
 var isScroll = false;
 var timeout$1 = void 0;
@@ -1666,6 +1619,7 @@ function handleStyle(style) {
             }
         case 'object':
             {
+                // 可以处理一般的css3兼容性
                 return Object.entries(style).map(function (_ref) {
                     var _ref2 = slicedToArray(_ref, 2),
                         key = _ref2[0],
@@ -1689,7 +1643,91 @@ function handleStyle(style) {
     }
 }
 
-function handleVFor(value, element, ctxs, vdom, node) {
+function diff() {
+    var oldArr = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+    var newArr = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+    var isKeyExist = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+
+    newArr = uniqueArr(newArr);
+    // getDelete
+    var deleteArr = [];
+    var keepArr = [];
+    var addAll = false;
+    var prevIndex = -2;
+    var add = void 0;
+    if (!isKeyExist) {
+        return {
+            del: {
+                arr: oldArr
+            },
+            add: {
+                before: {
+                    key: null,
+                    arr: newArr
+                },
+                after: {
+                    key: null,
+                    arr: []
+                }
+            },
+            noChange: false
+        };
+    }
+    for (var i = 0; i < oldArr.length; i++) {
+        var item = oldArr[i];
+        var INDEX = newArr.indexOf(item);
+        // console.log(INDEX, item)
+        if (INDEX < 0) {
+            deleteArr.push(item);
+        } else {
+            // 判断是否在newArr中连续出现
+            if (prevIndex !== -2 && prevIndex + 1 !== INDEX) {
+                addAll = true;
+                deleteArr = oldArr;
+                keepArr = [];
+                break;
+            } else {
+                keepArr.push(item);
+            }
+            prevIndex = INDEX;
+        }
+    }
+    if (addAll || !keepArr.length) {
+        add = {
+            before: {
+                key: null,
+                arr: newArr
+            },
+            after: {
+                key: 0,
+                arr: []
+            }
+        };
+    } else {
+        var start = newArr.indexOf(keepArr[0]);
+        var end = newArr.indexOf(keepArr[keepArr.length - 1]);
+        add = {
+            before: {
+                key: keepArr[0],
+                arr: newArr.slice(0, start)
+            },
+            after: {
+                key: keepArr[keepArr.length - 1],
+                arr: newArr.slice(end + 1)
+            }
+        };
+    }
+    // 计算新增数组
+    return {
+        del: {
+            arr: deleteArr
+        },
+        add: add,
+        noChange: add.before.arr.length === 0 && add.after.arr.length === 0 && deleteArr.length === 0
+    };
+}
+
+function handleFor(value, element, ctxs, vdom, node) {
     var _value$split$map = value.split(' in ').map(function (i) {
         return i.trim();
     }),
@@ -1710,7 +1748,7 @@ function handleVFor(value, element, ctxs, vdom, node) {
     var keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key']);
     vdom.exprs.push(execExpr(arrName, ctxs, function (newValue) {
         if (node.children.length > 1) {
-            console.error('v-for just should have one child');
+            console.error(DIRECTIVEPREV + "for just should have one child");
         }
         // diff cache key
         var newKeyValue = newValue.map(function (item, index) {
@@ -1786,6 +1824,47 @@ function handleVFor(value, element, ctxs, vdom, node) {
         });
     }));
 }
+
+function handleIf(parent, node, ctxs, parentVdom) {
+    var commentHook = document.createComment('ys:if 占位');
+    parent.appendChild(commentHook);
+    var collect = [];
+    parentVdom.exprs.push(execExpr(node.props['ys:if'], ctxs, function (newValue, oldValue) {
+        if (newValue) {
+            addElement(function (ele, vdom) {
+                vdom && collect.push(vdom);
+                ele && commentHook.parentElement && commentHook.parentElement.insertBefore(ele, commentHook);
+            }, node, ctxs, parentVdom);
+        } else {
+            // 如果node
+            collect.forEach(function (i) {
+                return unmountNode(i);
+            });
+            collect = [];
+        }
+    }));
+}
+
+var NEED_RESET_KEY = [':key', DIRECTIVEPREV + 'if', DIRECTIVEPREV + 'show', DIRECTIVEPREV + 'for'];
+// key发生变化后，组件重新选案
+function handleKeyChange(vdom) {
+    unmountNode(vdom);
+    vdom.reRender && vdom.reRender();
+}
+// 处理innerHTML
+function handleDangerousHTML(vdom) {
+    var ctxs = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+    var key = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
+    if (key === 'dangerousHTML') {
+        vdom.dom.innerHTML = vdom.ast.props[key];
+    } else if (key === ':dangerousHTML') {
+        execExpr(vdom.ast.props[key], ctxs, function (newValue, oldValue) {
+            vdom.dom.innerHTML = newValue;
+        });
+    }
+    return false;
+}
 /**
  * 添加属性
  *
@@ -1800,10 +1879,12 @@ function addProperties(element, vdom, ctxs) {
     var info = {
         transformChildren: true
     };
-    resortArr(Object.keys(node.props), ':key', 'v-if', 'v-for', 'v-show').forEach(function (key) {
+    resortArr(Object.keys(node.props), NEED_RESET_KEY).forEach(function (key) {
         var value = node.props[key];
         // 处理class
         if (handleClass(vdom, ctxs, key)) return;
+        // 处理html
+        if (handleDangerousHTML(vdom, ctxs, key)) return;
         var KEY = key.slice(1);
         // 处理事件绑定
         if (key.startsWith('@')) {
@@ -1825,28 +1906,36 @@ function addProperties(element, vdom, ctxs) {
             }));
         } else if (key.startsWith(':')) {
             vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue, execTime) {
-                if (node.tagName == 'input' && KEY == 'checked') {
+                if (['checked', 'value'].includes(KEY)) {
                     element[KEY] = newValue;
-                    return;
-                }
-                if (KEY === 'style') {
+                } else if (KEY === 'style') {
                     newValue = handleStyle(newValue);
-                }
-                element.setAttribute(KEY, newValue);
-                if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                } else if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
                     // 如果key发生变化，会卸载原有vdom，重新渲染
                     handleKeyChange(vdom);
+                    return;
                 }
+                element.setAttribute(KEY, newValue);
             }));
-        } else if (key.startsWith('v-')) {
+        } else if (key.startsWith(DIRECTIVEPREV)) {
+            var directive = key.slice(DIRECTIVEPREV.length);
             // 显示
-            if (key === 'v-show') {
+            if (directive === 'show') {
                 vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
                     element.style.cssText += ';display: ' + (newValue ? 'block' : 'none') + ';';
                 }));
-            } else if (key === 'v-for') {
+            } else if (directive === 'for') {
                 info.transformChildren = false;
-                handleVFor(value, element, ctxs, vdom, node);
+                handleFor(value, element, ctxs, vdom, node);
+            } else if (directive === 'bgd') {
+                vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
+                    element.style.cssText += ';background: url(' + newValue + ');';
+                }));
+            } else if (directive === 'html') {
+                info.transformChildren = false;
+                vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
+                    element.innerHTML = newValue;
+                }));
             }
         } else if (key === 'ref') {
             switch (getType(value)) {
@@ -1867,36 +1956,6 @@ function addProperties(element, vdom, ctxs) {
     });
     return info;
 }
-function handleKeyChange(vdom) {
-    unmountNode(vdom);
-    vdom.reRender && vdom.reRender();
-}
-/**
- * 处理v-if命令
- *
- * @param {HTMLElement} parent
- * @param {any} node
- * @param {array} ctxs
- */
-function handleVIf(parent, node, ctxs, parentVdom) {
-    var commentHook = document.createComment('v-if 占位');
-    parent.appendChild(commentHook);
-    var collect = [];
-    var destroy = parentVdom.exprs.push(execExpr(node.props['v-if'], ctxs, function (newValue, oldValue) {
-        if (newValue) {
-            addElement(function (ele, vdom) {
-                vdom && collect.push(vdom);
-                ele && commentHook.parentElement && commentHook.parentElement.insertBefore(ele, commentHook);
-            }, node, ctxs, parentVdom);
-        } else {
-            // 如果node
-            collect.forEach(function (i) {
-                return unmountNode(i);
-            });
-            collect = [];
-        }
-    }));
-}
 /**
  * 获取自定义组件属性
  * @param node
@@ -1907,17 +1966,17 @@ function getProps(vdom, ctxs) {
     var node = vdom.ast;
 
     var newProps = {};
-    Object.keys(node.props).forEach(function (key) {
+    resortArr(Object.keys(node.props), NEED_RESET_KEY).forEach(function (key) {
         var value = node.props[key];
         if (/^[@:]/.test(key)) {
             var KEY = key.slice(1);
             vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue, execTime) {
                 // 如果key为props，则对props进行rest操作，方便子组件对数据的获取
                 if (KEY === 'props') {
-                    Object.entries(newValue).forEach(function (_ref2) {
-                        var _ref3 = slicedToArray(_ref2, 2),
-                            k = _ref3[0],
-                            v = _ref3[1];
+                    Object.entries(newValue).forEach(function (_ref) {
+                        var _ref2 = slicedToArray(_ref, 2),
+                            k = _ref2[0],
+                            v = _ref2[1];
 
                         addObserve(newProps, k, v);
                     });
@@ -1940,13 +1999,6 @@ function getProps(vdom, ctxs) {
     };
     newProps = observer(newProps);
     return newProps;
-}
-function isComponent(component, ast) {
-    if (isPromise(component) || isFunction(component) || isString(component)) {
-        return true;
-    }
-    console.error(component, ast.tagName + ' should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Fv.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6');
-    return false;
 }
 /**
  * 添加元素
@@ -2007,7 +2059,8 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
             }, [getProps(vdom, ctxs)].concat(toConsumableArray(newValue.ctxs)), parentVdom);
         })();
     } else {
-        var createE = document.createElement(ast.tagName);
+        var createE = vdom.ast.isSVG ? document.createElementNS('http://www.w3.org/2000/svg', ast.tagName) // 添加svg支持
+        : document.createElement(ast.tagName);
         vdom.dom = createE;
         appendFn(createE, vdom);
         var result = addProperties(createE, vdom, ctxs);
@@ -2028,9 +2081,9 @@ function transform(ast, element, ctxs) {
 
     var vdoms = ast.children.map(function (node) {
         if (node.type === 'element' || node.type === 'component') {
-            // 处理v-if指令
-            if (node.props['v-if']) {
-                handleVIf(element, node, ctxs, parentVdom);
+            // 处理ys:if指令
+            if (node.props[DIRECTIVEPREV + 'if']) {
+                handleIf(element, node, ctxs, parentVdom);
             } else {
                 return addElement(function (createE) {
                     createE && element.appendChild(createE);
@@ -2063,17 +2116,10 @@ function transform(ast, element, ctxs) {
     };
 }
 
-var componentHook = '__yisec_component_hook__';
-/**
- * @param {any} Com
- * @param {*} props
- * @param {HTMLElement} dom
- * @returns {Component}
- */
 function render(Com, props, dom, vdom) {
     // 卸载原有dom上挂载的component
-    if (dom instanceof HTMLElement && dom[componentHook] && dom[componentHook].vdom && !dom[componentHook].vdom.unmounted) {
-        dom[componentHook].__willUnmount();
+    if (dom instanceof HTMLElement && dom[COMPONENT_DOM_HOOK] && dom[COMPONENT_DOM_HOOK].vdom && !dom[COMPONENT_DOM_HOOK].vdom.unmounted) {
+        dom[COMPONENT_DOM_HOOK].__willUnmount();
     }
     // string/function -> Component
     if (isFunction(Com)) {
@@ -2116,7 +2162,7 @@ function render(Com, props, dom, vdom) {
     }
     var ctx = new Com();
     // 把组件实例挂载在dom上
-    dom instanceof HTMLElement && (dom[componentHook] = ctx);
+    dom instanceof HTMLElement && (dom[COMPONENT_DOM_HOOK] = ctx);
     // state 与 props 属性不可被更改
     Object.defineProperty(ctx, 'state', {
         writable: false,

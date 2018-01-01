@@ -44,6 +44,7 @@ export declare class ASTNode {
     exprs: never[];
     value: string;
     dom: Node;
+    isSVG: boolean;
     ctx: object;
     constructor(tagName?: string);
 }

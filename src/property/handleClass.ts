@@ -1,6 +1,6 @@
-import { VirtualDOM } from "./d";
-import { execExpr } from "./execExpr";
-import { toClassNames } from "./util";
+import { VirtualDOM } from "./../d";
+import { execExpr } from "./../execExpr";
+import { toClassNames } from "./../util";
 
 function updateClassName(element: HTMLElement, classNames) {
     element.className = Object.keys(classNames)
@@ -27,9 +27,10 @@ function handleModuleCss(classNames, moduleMap) {
     }).join(' ')
 }
 
-// class mclass
-// enter-class enter-mclass
-// leave-class leave-mclass
+// class
+// enter-class
+// leave-class
+// 
 export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string, type: string = '') :boolean {
     const { ast: node, dom: element } = vdom
     const value = node.props[key]

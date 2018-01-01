@@ -1,5 +1,6 @@
+import { uniqueArr } from "../util";
+
 // 处理数组diff 返回数组变更
-import { uniqueArr } from "./util";
 
 export interface DiffAdd {
     before: {

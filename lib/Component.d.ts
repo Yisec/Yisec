@@ -11,8 +11,8 @@ export interface Refs {
 export default class Component implements LifeCycle {
     static defaultProps: object;
     template: string;
-    state: object;
-    props: object;
+    state: any;
+    props: any;
     components: {};
     parent: Component;
     children: Component[];

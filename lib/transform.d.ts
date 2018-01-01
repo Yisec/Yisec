@@ -1,6 +1,14 @@
 import { VirtualDOM, ASTNode } from "./d";
 import { FElement } from './util';
-export declare function isComponent(component: any, ast: ASTNode): boolean;
+/**
+ * 添加元素
+ *
+ * @param {function} appendFn
+ * @param {any} node
+ * @param {array} ctxs
+ * @returns
+ */
+export declare function addElement(appendFn: any, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM): VirtualDOM;
 /**
  * ast transform to node
  *

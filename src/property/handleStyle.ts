@@ -1,4 +1,5 @@
-import { getType, isString } from "./util";
+import { getType, isString } from "./../util";
+
 export default function handleStyle(style: any) {
     switch (getType(style)) {
         case 'string': {
@@ -8,6 +9,7 @@ export default function handleStyle(style: any) {
             return style.map(handleStyle).join(';')
         }
         case 'object': {
+            // 可以处理一般的css3兼容性
             return Object.entries(style).map(([key, value]) => {
                 if (isString(value)) {
                     const KEY = key.replace(/[A-Z]/g, $1 => '-' + $1.toLowerCase())

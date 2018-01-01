@@ -1,119 +1,55 @@
 import { EventAlias, VirtualDOM, ASTNode, Props } from "./d";
-import { toClassNames, getType, FElement, isPromise, isObject, getComponent, getParentCtx, isFunction, isString, resortArr } from './util'
+import {
+    toClassNames,
+    getType,
+    FElement,
+    isPromise,
+    isObject,
+    getComponent,
+    getParentCtx,
+    isFunction,
+    isString,
+    resortArr,
+    isComponent,
+} from './util'
 
 import { registerComponents } from "./register";
 import { autorun, observer, addObserve } from './autorun'
 import { execExpr } from "./execExpr";
-import diff from './diff'
 import render from './render'
 
-import handleClass from "./handleClass";
 import eventAlias from "./eventAlias";
 import FVEvents from "./FVEvents";
 import Component from "./Component";
 import { unmountChildren, unmountNode } from "./unmount"
-import handleStyle from "./handleStyle";
+import handleClass from "./property/handleClass";
+import handleStyle from "./property/handleStyle";
 
 import { handleEnter } from "./domLifeCycle";
+import handleFor from "./directive/for";
+import handleIf from "./directive/if";
 
-function handleVFor(value, element, ctxs, vdom, node) {
-    const [itemIndex ,arrName] = value.split(' in ').map(i => i.trim())
-    const [itemName, indexName] = itemIndex.replace(/(^\s*\()|(\)\s*$)/g, '').split(',').map(i => i.trim())
+import { DIRECTIVEPREV } from "./config";
 
-    let isExeced = false // 是否执行过
-    let cacheKeys = []
-    let cacheKeyVdom = {}
-    const keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key'])
-    vdom.exprs.push(
-        execExpr(arrName, ctxs, (newValue, oldValue = []) => {
-            // v-for只应该含有一个子元素
-            if (node.children.length > 1) {
-                console.error(`v-for just should have one child`)
-            }
-            // diff cache key
-            const newKeyValue = newValue.map((item, index) => {
-                let key
-                execExpr(
-                    keyValue,
-                    [
-                        ...ctxs,
-                        {
-                            [itemName]: item,
-                            [indexName]: index,
-                        }
-                    ],
-                    newValue => {
-                        key = newValue
-                    }
-                )()
-                return {
-                    key,
-                    item,
-                }
-            })
+// 需要优先处理的props key
+const NEED_RESET_KEY = [':key', `${DIRECTIVEPREV}if`, `${DIRECTIVEPREV}show`, `${DIRECTIVEPREV}for`]
 
-            // console.log(newKeyValue)
+// key发生变化后，组件重新选案
+function handleKeyChange(vdom: VirtualDOM) {
+    unmountNode(vdom)
+    vdom.reRender && vdom.reRender()
+}
 
-            const newKyes = newKeyValue.map(i => i.key)
-            const { add, del, noChange } = diff(cacheKeys, newKyes, keyValue)
-            if (noChange) return
-            cacheKeys = newKyes
-            // 如果执行过
-            if (isExeced) {
-                // 存在key，卸载需要删除的key对应的vdom，否则整体卸载
-                if (keyValue) {
-                    del.arr.forEach(key => {
-                        cacheKeyVdom[key] && unmountChildren(cacheKeyVdom[key].vdom)
-                        delete cacheKeyVdom[key] // 删除缓存
-                    })
-                } else {
-                    unmountChildren(vdom)
-                }
-            }
-
-            isExeced = true
-
-            // 我们只处理 移除 + 头尾新增的情况
-            // key不发生变化的需要更新index
-            // key新增的还是需要新增
-            const childNode = element.childNodes && element.childNodes[0]
-            newKeyValue.forEach((keyItem, index) => {
-                const { key, item } = keyItem
-                // 不存在就新增，存在就更新
-                if (!cacheKeyVdom[key]) {
-                    let dd = {}
-                    indexName && (dd[indexName] = index)
-                    itemName && (dd[itemName] = item)
-                    const observeIndexItem = observer(dd)
-
-                    const PE = add.before.arr.includes(key) ? {
-                        appendChild: (newNode) => {
-                            childNode ? element.insertBefore(newNode, childNode) : element.appendChild(newNode)
-                            return newNode
-                        }
-                    } : element;
-
-                    const result = transform(
-                        node,
-                        PE,
-                        [...ctxs, observeIndexItem],
-                        vdom,
-                    )
-                    // 如果没有key就不要加入缓存了
-                    if (keyValue) {
-                        cacheKeyVdom[key] = {
-                            vdom: result,
-                            observeIndexItem,
-                        }
-                    }
-                } else {
-                    const hh = cacheKeyVdom[key].observeIndexItem
-                    // itemName && (hh[itemName] = item)
-                    indexName && (hh[indexName] = index)
-                }
-            })
+// 处理innerHTML
+function handleDangerousHTML(vdom: VirtualDOM, ctxs:any[] = [], key = '') :boolean {
+    if (key === 'dangerousHTML') {
+        vdom.dom.innerHTML = vdom.ast.props[key]
+    } else if (key === ':dangerousHTML') {
+        execExpr(vdom.ast.props[key], ctxs, (newValue, oldValue) => {
+            vdom.dom.innerHTML = newValue
         })
-    )
+    }
+    return false
 }
 
 /**
@@ -127,16 +63,19 @@ function handleVFor(value, element, ctxs, vdom, node) {
 function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
     const {ast: node} = vdom
     const info = {
-        transformChildren: true,
+        transformChildren: true, // 是否渲染子节点
     }
 
     resortArr(
         Object.keys(node.props),
-        ':key', 'v-if', 'v-for', 'v-show'
+        NEED_RESET_KEY
     ).forEach(key => {
         const value = node.props[key]
         // 处理class
         if (handleClass(vdom, ctxs, key)) return
+
+        // 处理html
+        if (handleDangerousHTML(vdom, ctxs, key)) return
 
         const KEY = key.slice(1)
         // 处理事件绑定
@@ -164,27 +103,30 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
         else if (key.startsWith(':')) {
             vdom.exprs.push(
                 execExpr(value, ctxs, (newValue, oldValue, execTime) => {
-                    if (node.tagName == 'input' && KEY == 'checked') {
+                    if (
+                        ['checked', 'value'].includes(KEY)
+                    ) {
                         element[KEY] = newValue
-                        return
                     }
-
-                    if (KEY === 'style') {
+                    // 处理style
+                    else if (KEY === 'style') {
                         newValue = handleStyle(newValue)
                     }
-                    element.setAttribute(KEY, newValue)
-
-                    if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
+                    // 处理key变化
+                    else if (KEY === 'key' && oldValue !== newValue && execTime > 1) {
                         // 如果key发生变化，会卸载原有vdom，重新渲染
                         handleKeyChange(vdom)
+                        return
                     }
+                    element.setAttribute(KEY, newValue)
                 })
             )
         }
         // 处理指令
-        else if (key.startsWith('v-')) {
+        else if (key.startsWith(DIRECTIVEPREV)) {
+            const directive = key.slice(DIRECTIVEPREV.length)
             // 显示
-            if (key === 'v-show') {
+            if (directive === 'show') {
                 vdom.exprs.push(
                     execExpr(value, ctxs, (newValue, oldValue) => {
                         element.style.cssText += `;display: ${newValue ? 'block' : 'none' };`
@@ -192,9 +134,26 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                 )
             }
             // 循环
-            else if (key === 'v-for') {
+            else if (directive === 'for') {
                 info.transformChildren = false
-                handleVFor(value, element, ctxs, vdom, node)
+                handleFor(value, element, ctxs, vdom, node)
+            }
+            // backgroundImage
+            else if (directive === 'bgd') {
+                vdom.exprs.push(
+                    execExpr(value, ctxs, (newValue, oldValue) => {
+                        element.style.cssText += `;background: url(${newValue});`
+                    })
+                )
+            }
+            // 处理innerHTML
+            else if (directive === 'html') {
+                info.transformChildren = false
+                vdom.exprs.push(
+                    execExpr(value, ctxs, (newValue, oldValue) => {
+                        element.innerHTML = newValue
+                    })
+                )
             }
         }
         // 添加处理ref
@@ -218,38 +177,6 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
     return info
 }
 
-function handleKeyChange(vdom: VirtualDOM) {
-    unmountNode(vdom)
-    vdom.reRender && vdom.reRender()
-}
-
-/**
- * 处理v-if命令
- *
- * @param {HTMLElement} parent
- * @param {any} node
- * @param {array} ctxs
- */
-function handleVIf(parent, node, ctxs: any[], parentVdom: VirtualDOM) {
-    let commentHook = document.createComment('v-if 占位')
-    parent.appendChild(commentHook)
-    let collect:VirtualDOM[] = []
-    const destroy = parentVdom.exprs.push(
-        execExpr(node.props['v-if'], ctxs, (newValue, oldValue) => {
-            if (newValue) {
-                addElement((ele, vdom) => {
-                    vdom && collect.push(vdom)
-                    ele && commentHook.parentElement && commentHook.parentElement.insertBefore(ele, commentHook)
-                }, node, ctxs, parentVdom)
-            } else {
-                // 如果node
-                collect.forEach(i => unmountNode(i))
-                collect = []
-            }
-        })
-    )
-}
-
 /**
  * 获取自定义组件属性
  * @param node
@@ -259,7 +186,11 @@ function handleVIf(parent, node, ctxs: any[], parentVdom: VirtualDOM) {
 function getProps(vdom: VirtualDOM, ctxs: any[]) {
     const { ast: node } = vdom
     let newProps: Props = {}
-    Object.keys(node.props).forEach(key => {
+
+    resortArr(
+        Object.keys(node.props),
+        NEED_RESET_KEY
+    ).forEach(key => {
         const value = node.props[key]
         if (/^[@:]/.test(key)) {
             const KEY = key.slice(1)
@@ -293,14 +224,6 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
     return newProps
 }
 
-export function isComponent(component, ast: ASTNode) {
-    if (isPromise(component) || isFunction(component) || isString(component))  {
-        return true
-    }
-    console.error(component, `${ast.tagName} should be a Component!!! 您可以在组件的Components属性中添加子组件，或者通过Fv.register注册全局组件`)
-    return false
-}
-
 /**
  * 添加元素
  *
@@ -309,7 +232,7 @@ export function isComponent(component, ast: ASTNode) {
  * @param {array} ctxs
  * @returns
  */
-function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM) :VirtualDOM {
+export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM) :VirtualDOM {
     const vdom = new VirtualDOM(parentVdom)
     vdom.ast = ast
     vdom.ctxs = ctxs
@@ -358,7 +281,9 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
             }, [getProps(vdom, ctxs) , ...newValue.ctxs], parentVdom)
         })()
     } else {
-        let createE = document.createElement(ast.tagName)
+        let createE = vdom.ast.isSVG
+            ? document.createElementNS('http://www.w3.org/2000/svg', ast.tagName) // 添加svg支持
+            : document.createElement(ast.tagName)
         vdom.dom = createE
         appendFn(createE, vdom)
         const result = addProperties(createE, vdom, ctxs)
@@ -379,9 +304,9 @@ function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM)
 function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom: VirtualDOM = new VirtualDOM() ) {
     const vdoms = ast.children.map(node => {
         if (node.type === 'element' || node.type === 'component') {
-            // 处理v-if指令
-            if (node.props['v-if']) {
-                handleVIf(element, node, ctxs, parentVdom)
+            // 处理ys:if指令
+            if (node.props[`${DIRECTIVEPREV}if`]) {
+                handleIf(element, node, ctxs, parentVdom)
             } else {
                 return addElement((createE) => {
                     createE && element.appendChild(createE)

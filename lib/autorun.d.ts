@@ -17,7 +17,6 @@ export declare class Depends {
     collect(): void;
     run(key?: string): void;
 }
-export declare function isObserve(obj: any): any;
 export declare function addObserve(ctx: any, key: string, defaultValue?: any, options?: ObserveOptions): void;
 export interface ObserveOptions {
     parentDepend?: Depends;
@@ -35,6 +34,7 @@ export declare function observeArr(arr: never[] | undefined, options: ObserveOpt
  * @param init
  */
 export declare function observeObj(obj: {} | undefined, options: any): Observe;
+export declare function isObserve(obj: any): boolean;
 /**
  * 构造一个新的observe对象
  * @param {objet} obj

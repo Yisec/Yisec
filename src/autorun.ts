@@ -1,5 +1,6 @@
 import { getType, bindContext, uuid, isArray, isFunction } from "./util";
 import { addUpdateQueue } from "./forceUpdate";
+import { OBSERVE_ID } from "./config";
 
 export class Observe {}
 export type autorunFn = () => void
@@ -48,11 +49,12 @@ class ObserveId {
     id = uuid() + ObserveId.id++
     keys = []
 }
+
 function addObserverId(newObj) {
-    if (newObj.__observeId__ instanceof ObserveId) {
+    if (newObj[OBSERVE_ID] instanceof ObserveId) {
         return
     }
-    Object.defineProperty(newObj, '__observeId__', {
+    Object.defineProperty(newObj, OBSERVE_ID, {
         value: new ObserveId(),
         configurable: false,
         writable: false,
@@ -60,18 +62,14 @@ function addObserverId(newObj) {
     })
 }
 
-export function isObserve(obj) {
-    return (obj instanceof Observe) || (isArray(obj) && obj.__observe__)
-}
-
 export function addObserve(ctx: any, key: string, defaultValue = ctx[key], options: ObserveOptions = { deep: false }) {
     addObserverId(ctx)
     // 这里隐含了一个bug，如果state,prop被更改，就懵逼了，因此设置state、props writable: false
-    if (ctx.__observeId__.keys.includes(key)) {
+    if (ctx[OBSERVE_ID].keys.includes(key)) {
         ctx[key] = defaultValue // 数据已监听，则更新
         return
     } else {
-        ctx.__observeId__.keys.push(key)
+        ctx[OBSERVE_ID].keys.push(key)
     }
 
     let value = bindContext(defaultValue, ctx)
@@ -114,9 +112,14 @@ export interface ObserveOptions {
  * @param parentDepends
  */
 export function observeArr(arr = [], options: ObserveOptions) {
+    // 判断是否observe过
+    if (isObserve(arr)) {
+        return arr
+    }
+
     const newArr = arr.map(item => observer(item))
-    Object.defineProperty(newArr, '__observe__', {
-        value: true,
+    Object.defineProperty(newArr, OBSERVE_ID, {
+        value: new ObserveId(),
         enumerable: false,
         writable: false,
         configurable: false,
@@ -169,6 +172,10 @@ export function observeObj(obj = {}, options) {
         addObserve(newObj, key, obj[key], options)
     })
     return newObj
+}
+
+export function isObserve(obj) {
+    return (obj instanceof Observe) || (isArray(obj) && obj[OBSERVE_ID] instanceof Observe)
 }
 
 /**

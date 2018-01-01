@@ -1,5 +1,6 @@
 import { registerComponents } from "./register";
 import Component from "./Component";
+import { ASTNode } from "./d";
 
 /**
  * 获取数据类型
@@ -113,7 +114,7 @@ export function uuid(len = 8):string {
     return ' '.repeat(len).split('').map(() => S[Math.round(Math.random() * LEN)]).join('')
 }
 
-export function getComponent(name: string = '', ctxs: object[] = []) {
+export function getComponent(name: string = '', ctxs: any[] = []) {
     for (let i=0; i< ctxs.length; i++) {
         if (ctxs[i].components && ctxs[i].components[name]) {
             return ctxs[i].components[name]
@@ -131,7 +132,7 @@ export function getParentCtx(ctxs: object[] = []): Component {
 }
 
 // 如果arr中存在keys中的元素，那么keys中的元素排序提前
-export function resortArr(arr:any[] = [], ...keys) {
+export function resortArr(arr:any[] = [], keys:any[] = []) {
     const newArr: any[] = []
     keys.forEach(i => {
         if (arr.includes(i)) {
@@ -144,4 +145,12 @@ export function resortArr(arr:any[] = [], ...keys) {
         }
     })
     return newArr
+}
+
+export function isComponent(component, ast: ASTNode) {
+    if (isPromise(component) || isFunction(component) || isString(component))  {
+        return true
+    }
+    console.error(component, `${ast.tagName} should be a Component!!! 您可以在组件的Components属性中添加子组件，或者通过Fv.register注册全局组件`)
+    return false
 }

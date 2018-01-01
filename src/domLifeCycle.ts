@@ -1,5 +1,5 @@
 import { VirtualDOM } from './d'
-import handleClass, { testClass } from "./handleClass";
+import handleClass, { testClass } from "./property/handleClass";
 
 /**
  * 判断dom是否可以异步卸载

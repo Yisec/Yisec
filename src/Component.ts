@@ -19,9 +19,9 @@ export default class Component implements LifeCycle {
     // 模板
     template = ''
     // 状态
-    state: object = {}
+    state: any = {}
     // props
-    props: object = {}
+    props: any = {}
     // 子组件
     components = {}
     // 父组件

@@ -13,7 +13,7 @@ declare const _default: {
     render: (Com: any, props: any, dom: FElement, vdom?: VirtualDOM | undefined) => Component;
     autorun: (fn: () => void, options?: {}) => () => void;
     observer: (obj: any, options?: ObserveOptions) => any;
-    isObserve: (obj: any) => any;
+    isObserve: (obj: any) => boolean;
     addObserve: (ctx: any, key: string, defaultValue?: any, options?: ObserveOptions) => void;
     observerDeep: (obj: any) => any;
     register: (name: string, Com: typeof Component) => void;
