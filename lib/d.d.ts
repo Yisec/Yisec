@@ -28,7 +28,8 @@ export declare class TokenElement {
     index: number;
     value: string;
     origin: string;
-    constructor(type: string, index: number, value: string, origin?: string);
+    isExpr: boolean;
+    constructor(type: string, index: number, value: string, origin?: string, isExpr?: boolean);
 }
 /**
  * AST节点

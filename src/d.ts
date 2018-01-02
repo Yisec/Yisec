@@ -43,11 +43,13 @@ export class TokenElement {
     index: number
     value: string
     origin: string
-    constructor(type: string, index: number, value: string, origin: string = value ) {
+    isExpr: boolean
+    constructor(type: string, index: number, value: string, origin: string = value, isExpr = false ) {
         this.type = type
         this.index = index
         this.value = value
         this.origin = origin
+        this.isExpr = isExpr
     }
 }
 

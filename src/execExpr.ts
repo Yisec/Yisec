@@ -64,7 +64,7 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
     //      }`
     // })
     // const input = new Function(...names, body)(...ctxs)
-    if (pipes.length >= 1) {
+    if (pipes.length) {
         return getPipes(pipeExprs, ctxs)(input)
     }
     return input

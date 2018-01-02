@@ -403,12 +403,14 @@ var VirtualDOM = function () {
 }();
 var TokenElement = function TokenElement(type, index, value) {
     var origin = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : value;
+    var isExpr = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
     classCallCheck(this, TokenElement);
 
     this.type = type;
     this.index = index;
     this.value = value;
     this.origin = origin;
+    this.isExpr = isExpr;
 };
 /**
  * AST节点
@@ -856,7 +858,7 @@ function execExprIm() {
     //      }`
     // })
     // const input = new Function(...names, body)(...ctxs)
-    if (pipes.length >= 1) {
+    if (pipes.length) {
         return getPipes(pipeExprs, ctxs)(input);
     }
     return input;
@@ -1122,6 +1124,39 @@ var Component = function () {
 
 Component.defaultProps = {};
 
+function getMatched() {
+    var start = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '{';
+    var end = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '}';
+    var str = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
+    var process = [];
+    var result = {
+        matchStr: '',
+        value: ''
+    };
+    var index = 0;
+    var matchStr = '';
+    if (str[index] !== start) {
+        return result;
+    }
+    while (index < str.length) {
+        var token = str[index];
+        matchStr += token;
+        if (token === start) {
+            process.push(false);
+        } else if (token === end) {
+            process.pop();
+            if (process.length === 0) {
+                result.matchStr = matchStr;
+                result.value = matchStr.slice(1, -1);
+                return result;
+            }
+        }
+        index += 1;
+    }
+    return result;
+}
+
 // 解析template
 // 有时候我们不想使用jsx，不想使用babel编译💊
 // 那就使用类似vue angular之类的字符串模板吧
@@ -1163,7 +1198,7 @@ var M = {
         ); // @:-aaaa
     },
     get PROPERTY_VALUE() {
-        return (/^"([^"]*)"\s*|^{([^}]*)}\s*/
+        return (/^"([^"]*)"\s*/
         ); // 支持 "xxx" {xc}
     },
     get EXPR() {
@@ -1293,11 +1328,9 @@ function getToken() {
         ) {
                 // 向前读，需要是
                 var _ref17 = localStr.match(M.PROPERTY_VALUE) || ['', ''],
-                    _ref18 = slicedToArray(_ref17, 3),
+                    _ref18 = slicedToArray(_ref17, 2),
                     _matchStr7 = _ref18[0],
-                    strValue = _ref18[1],
-                    _ref18$ = _ref18[2],
-                    _value7 = _ref18$ === undefined ? strValue : _ref18$;
+                    _value7 = _ref18[1];
 
                 token.push(new TokenElement('PROPERTY_VALUE', index, _value7, _matchStr7));
                 index += _matchStr7.length;
@@ -1305,22 +1338,23 @@ function getToken() {
                 return next();
             }
         // 表达式
-        if (M.EXPR.test(localStr)) {
-            var _ref19 = localStr.match(M.EXPR) || ['', ''],
-                _ref20 = slicedToArray(_ref19, 2),
-                _matchStr8 = _ref20[0],
-                _value8 = _ref20[1];
+        if (/^{.*}/.test(localStr)) {
+            var _getMatched = getMatched('{', '}', localStr),
+                _matchStr8 = _getMatched.matchStr,
+                _value8 = _getMatched.value;
 
-            token.push(new TokenElement('EXPR', index, _value8, _matchStr8));
-            index += _matchStr8.length;
-            localStr = localStr.slice(_matchStr8.length);
-            return next();
+            if (_matchStr8) {
+                token.push(new TokenElement('EXPR', index, _value8, _matchStr8, true));
+                index += _matchStr8.length;
+                localStr = localStr.slice(_matchStr8.length);
+                return next();
+            }
         }
         // 文本节点
         if (M.STRING.test(localStr)) {
-            var _ref21 = localStr.match(M.STRING) || [''],
-                _ref22 = slicedToArray(_ref21, 1),
-                _value9 = _ref22[0];
+            var _ref19 = localStr.match(M.STRING) || [''],
+                _ref20 = slicedToArray(_ref19, 1),
+                _value9 = _ref20[0];
 
             token.push(new TokenElement('STRING', index, _value9));
             index += _value9.length;
@@ -1343,7 +1377,7 @@ function handleASTError(token, template, message) {
     var enter = str.match(/\n/g);
     var row = enter ? enter.length + 1 : 1;
     var column = str.length - str.lastIndexOf('\n');
-    console.error('at row:' + row + ' column:' + column + ' \n\n' + template.slice(token.index, token.index + 100) + ' \n\n' + message);
+    console.error("at row:" + row + " column:" + column + " \n\n" + template.slice(token.index, token.index + 100) + " \n\n" + message);
 }
 // 读取元素
 // token[0].type == 'OPEN_START'
@@ -1380,12 +1414,18 @@ function toAST() {
             var tagName = getT(index + 1).value;
             while (getT(localIndex).type == 'TAG_NAME' || getT(localIndex).type == 'PROPERTY_NAME') {
                 if (getT(localIndex + 1).type == 'EQ') {
-                    if (getT(localIndex + 2).type == 'PROPERTY_VALUE') {
-                        props[getT(localIndex).value] = getT(localIndex + 2).value;
+                    if (['PROPERTY_VALUE', 'EXPR'].includes(getT(localIndex + 2).type)) {
+                        var propertyKey = getT(localIndex).value;
+                        var propertyValue = getT(localIndex + 2);
+                        // 如果propertyValue是表达式，并且key不以:|ys:|@开头，追加ys:expr:表示此key是一个表达式
+                        if (propertyValue.isExpr && !/^:|@|ys:/.test(propertyKey)) {
+                            propertyKey = "ys:expr:" + propertyKey;
+                        }
+                        props[propertyKey] = propertyValue.value;
                         localIndex += 3;
                         continue;
                     } else {
-                        handleASTError(getT(localIndex), template, getT(localIndex).value + ' should have a value');
+                        handleASTError(getT(localIndex), template, getT(localIndex).value + " should have a value");
                     }
                 }
                 props[getT(localIndex).value] = true;
@@ -1404,7 +1444,7 @@ function toAST() {
             index = localIndex + 1;
         } else if (currentT.type == 'CLOSE_START' && getT(index + 1).type == 'TAG_NAME' && getT(index + 2).type == 'TAG_CLOSE') {
             if (currentNode.tagName !== getT(index + 1).value) {
-                handleASTError(getT(index + 1), template, 'close tag name should be ' + currentNode.tagName + ', but now is ' + getT(index + 1).value);
+                handleASTError(getT(index + 1), template, "close tag name should be " + currentNode.tagName + ", but now is " + getT(index + 1).value);
             }
             currentNode = currentNode.parent;
             index += 3;
@@ -1727,6 +1767,10 @@ function diff() {
     };
 }
 
+function getKeyExpr(node) {
+    var child = node.children[0];
+    return child && (child.props['key'] || child.props[':key'] || child.props[DIRECTIVEPREV + "expr:key"]);
+}
 function handleFor(value, element, ctxs, vdom, node) {
     var _value$split$map = value.split(' in ').map(function (i) {
         return i.trim();
@@ -1745,7 +1789,7 @@ function handleFor(value, element, ctxs, vdom, node) {
     var isExeced = false; // 是否执行过
     var cacheKeys = [];
     var cacheKeyVdom = {};
-    var keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key']);
+    var keyValue = getKeyExpr(node);
     vdom.exprs.push(execExpr(arrName, ctxs, function (newValue) {
         if (node.children.length > 1) {
             console.error(DIRECTIVEPREV + "for just should have one child");
@@ -1936,6 +1980,10 @@ function addProperties(element, vdom, ctxs) {
                 vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
                     element.innerHTML = newValue;
                 }));
+            } else if (directive.startsWith('expr:')) {
+                execExpr(value, ctxs, function (newValue, oldValue) {
+                    element.setAttribute(directive.slice('expr:'.length), newValue);
+                })();
             }
         } else if (key === 'ref') {
             switch (getType(value)) {
@@ -1968,8 +2016,8 @@ function getProps(vdom, ctxs) {
     var newProps = {};
     resortArr(Object.keys(node.props), NEED_RESET_KEY).forEach(function (key) {
         var value = node.props[key];
-        if (/^[@:]/.test(key)) {
-            var KEY = key.slice(1);
+        if (/^@|:|ys:expr:/.test(key)) {
+            var KEY = key.replace(/^@|:|ys:expr:/, '');
             vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue, execTime) {
                 // 如果key为props，则对props进行rest操作，方便子组件对数据的获取
                 if (KEY === 'props') {

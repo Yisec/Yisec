@@ -29,7 +29,7 @@ const store = observer({
 class Hello extends Component {
     render() {
         return (`
-            <h1 @click="store.addNum">click to add {{store.num}}</h1>
+            <h1 @click={store.addNum}>click to add {store.num}</h1>
         `)
     }
 }
@@ -167,14 +167,14 @@ function handleEnter(event) {
         doSth()
     }
 }
-`<div @keydown="handleEnter"></div>`
+`<div @keydown={handleEnter}></div>`
 ```
 
 ### after
 ```js
 function doSth() {
 }
-`<div @enter="doSth"></div>`
+`<div @enter={doSth}></div>`
 ```
 
 
@@ -196,7 +196,7 @@ addPipe({
 
 `
     <div>
-        {{ time | dateFormat | addPrev }}
+        { time | dateFormat | addPrev }
     </div>
 `
 ```
@@ -209,9 +209,9 @@ class extends Component {
     moduleCss = moduleCss
     render() {
         return (`
-            <div class="aa" :class="[name]"
-                enter-class="aa" :enter-class="[name]"
-                leave-class="aa" :leave-class="[name]"
+            <div class="aa" :class={[name]}
+                enter-class="aa" :enter-class={[name]}
+                leave-class="aa" :leave-class={[name]}
                 ></div>
         `)
     }

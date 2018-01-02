@@ -155,6 +155,12 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                     })
                 )
             }
+            // 处理表达式，表达式不会对依赖进行watch
+            else if (directive.startsWith('expr:')) {
+                execExpr(value, ctxs, (newValue, oldValue) => {
+                    element.setAttribute(directive.slice('expr:'.length), newValue)
+                })()
+            }
         }
         // 添加处理ref
         else if (key === 'ref') {
@@ -192,8 +198,8 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
         NEED_RESET_KEY
     ).forEach(key => {
         const value = node.props[key]
-        if (/^[@:]/.test(key)) {
-            const KEY = key.slice(1)
+        if (/^@|:|ys:expr:/.test(key)) {
+            const KEY = key.replace(/^@|:|ys:expr:/, '')
             vdom.exprs.push(
                 execExpr(value, ctxs, (newValue, oldValue, execTime) => {
                     // 如果key为props，则对props进行rest操作，方便子组件对数据的获取

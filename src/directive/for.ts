@@ -5,6 +5,15 @@ import { observer } from "../autorun";
 import transform from "../transform";
 import { DIRECTIVEPREV } from "../config";
 
+function getKeyExpr(node) {
+    const child = node.children[0]
+    return child && (
+        child.props['key']
+        || child.props[':key']
+        || child.props[`${DIRECTIVEPREV}expr:key`]
+    )
+}
+
 export default function handleFor(value, element, ctxs, vdom, node) {
     const [itemIndex ,arrName] = value.split(' in ').map(i => i.trim())
     const [itemName, indexName] = itemIndex.replace(/(^\s*\()|(\)\s*$)/g, '').split(',').map(i => i.trim())
@@ -12,7 +21,7 @@ export default function handleFor(value, element, ctxs, vdom, node) {
     let isExeced = false // 是否执行过
     let cacheKeys = []
     let cacheKeyVdom = {}
-    const keyValue = node.children[0] && (node.children[0].props['key'] || node.children[0].props[':key'])
+    const keyValue = getKeyExpr(node)
     vdom.exprs.push(
         execExpr(arrName, ctxs, (newValue, oldValue = []) => {
             // ys:for只应该含有一个子元素
