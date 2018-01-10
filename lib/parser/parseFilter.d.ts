@@ -1,2 +1,1 @@
-declare const parseFilter: (str?: string) => any;
-export default parseFilter;
+export default function parseFilter(str?: string): any;

@@ -19,7 +19,6 @@ import { execExpr } from "./execExpr";
 import render from './render'
 
 import eventAlias from "./eventAlias";
-import FVEvents from "./FVEvents";
 import Component from "./Component";
 import { unmountChildren, unmountNode } from "./unmount"
 import handleClass from "./property/handleClass";
@@ -185,9 +184,6 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
 
 /**
  * 获取自定义组件属性
- * @param node
- * @param vdom
- * @param ctxs
  */
 function getProps(vdom: VirtualDOM, ctxs: any[]) {
     const { ast: node } = vdom
@@ -232,18 +228,15 @@ function getProps(vdom: VirtualDOM, ctxs: any[]) {
 
 /**
  * 添加元素
- *
- * @param {function} appendFn
- * @param {any} node
- * @param {array} ctxs
- * @returns
  */
 export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: VirtualDOM) :VirtualDOM {
     const vdom = new VirtualDOM(parentVdom)
     vdom.ast = ast
     vdom.ctxs = ctxs
     // 方便dom卸载后，重新渲染
-    vdom.reRender = () => addElement(appendFn, ast, ctxs, parentVdom)
+    vdom.reRender = () => {
+        addElement(appendFn, ast, ctxs, parentVdom)
+    }
 
     if (/^[A-Z]/.test(ast.tagName)) {
         // 处理子组件
@@ -279,14 +272,22 @@ export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: Virt
             }
         }
 
-    } else if (ast.tagName == 'slot') {
+    } else if (ast.tagName === 'slot') {
         // 处理slot，获取children后，并不监听变化
         execExpr('props.children', ctxs, (newValue) => {
             transform(newValue.node, {
                 appendChild: appendFn,
             }, [getProps(vdom, ctxs) , ...newValue.ctxs], parentVdom)
         })()
-    } else {
+    }
+    // template作为特殊的不被渲染的节点
+    else if (ast.tagName === 'template') {
+        appendFn(null, vdom) // 添加vdom
+        transform(ast, {
+            appendChild: appendFn,
+        }, ctxs, vdom)
+    }
+    else {
         let createE = vdom.ast.isSVG
             ? document.createElementNS('http://www.w3.org/2000/svg', ast.tagName) // 添加svg支持
             : document.createElement(ast.tagName)

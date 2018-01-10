@@ -1,2 +1,1 @@
-declare const parseExpr: (body: any) => any;
-export default parseExpr;
+export default function parseExpr(body: any): any;

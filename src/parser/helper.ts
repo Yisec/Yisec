@@ -3,32 +3,43 @@ export interface MatchResult {
     value: string
 }
 
-export function getMatched(start = '{', end = '}', str = ''): MatchResult {
-    const process: boolean[] = []
+// 支持嵌套的表达式匹配， 主要为了支持<span>{{a: b}}</span>
+// 性能优化，这可在startToken match后，查看后面是否有arr.length数量的endToken
+export function getMatched(start = '<%', end= '%>', str = ''): MatchResult {
+    const START_LEN = start.length
+    const END_LEN = end.length
+    let index = 0
+    let arr:boolean[] = []
     let result: MatchResult = {
         matchStr: '',
         value: ''
     }
-    let index = 0
-    let matchStr = ''
-    if (str[index] !== start) {
+    if (!str.startsWith(start)) {
         return result
     }
-
     while (index < str.length) {
-        const token = str[index]
-        matchStr += token
-        if (token === start) {
-            process.push(false)
-        } else if (token === end) {
-            process.pop()
-            if (process.length === 0) {
-                result.matchStr = matchStr
-                result.value = matchStr.slice(1, -1)
-                return result
-            }
+        // startToken
+        if (str.slice(index, index + START_LEN) === start) {
+            arr.push(false)
+            index += START_LEN
+            continue
         }
+        // endToken
+        else if (str.slice(index, index + END_LEN) === end) {
+            index += END_LEN
+            arr.pop()
+            if (arr.length === 0) {
+                const matchStr = str.slice(0, index)
+                return {
+                    matchStr,
+                    value: matchStr.slice(START_LEN, -END_LEN)
+                }
+            }
+            continue
+        }
+        // index++
         index += 1
     }
+    // 匹配失败
     return result
 }

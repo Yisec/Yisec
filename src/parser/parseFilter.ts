@@ -1,38 +1,45 @@
 // 分割表达式，只处理不重复的分隔符|
-const parseFilter = (function() {
-    let parseFilterCache = {}
-    return function parseFilter(str = '') {
-        if (parseFilterCache[str]) {
-            return parseFilterCache[str]
-        }
-        const exprArr:string[] = []
-        let current = ''
-        let index = 0
+const parseFilterCache = {}
 
-        while(index < str.length) {
-            const char = str[index]
-            if (
-                char === '|'
-                && !/\|\s*$/.test(current)
-                && !/^\s*\|/.test(str.slice(index+1))
-            ) {
-                exprArr.push(current)
-                current = ''
-            } else {
-                current += char
-            }
-            index += 1
-        }
-        exprArr.push(current)
-
-        const result = {
-            expr: exprArr[0],
-            pipes: exprArr.slice(1).map(i => i.trim()).filter(i => i),
-        }
-        parseFilterCache[str] = result
-
-        return result
+export default function parseFilter(str = '') {
+    if (parseFilterCache[str]) {
+        return parseFilterCache[str]
     }
-}())
+    const exprArr:string[] = []
+    let current = ''
+    let index = 0
 
-export default parseFilter
+    while (index < str.length) {
+        const char = str[index]
+        // 前后不能是| |
+        if (
+            char === '|'
+            && str[index - 1] !== '|'
+            && str[index + 1] !== '|'
+        ) {
+            exprArr.push(current)
+            index += 1
+            current = ''
+            continue
+        }
+        // 字符串不处理
+        else if (char === "'" || char === '"') {
+            const [matchStr = ''] = str.slice(index).match(/^'[^']*'|^"[^"]*"/) || []
+            current += matchStr
+            index += matchStr.length
+            continue
+        }
+
+        current += char
+        index += 1
+    }
+    exprArr.push(current)
+
+    const result = {
+        expr: exprArr[0],
+        pipes: exprArr.slice(1).map(i => i.trim()).filter(i => i),
+    }
+    parseFilterCache[str] = result
+
+    return result
+}

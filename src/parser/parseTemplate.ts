@@ -334,6 +334,15 @@ function handleSVG(node: ASTNode, isSVG = false) {
     return node
 }
 
+function handleIfElse(node: ASTNode) {
+    let prevCondition = ''
+    node.children.forEach(child => {
+        if (child.props['ys:if']) {
+            prevCondition = 'if'
+        }
+    })
+}
+
 let cache = {}
 // 字符串 => ast
 export default function(template: string = '') :ASTNode {

@@ -77,7 +77,7 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
  * @param {(result: any) => void} fn
  * @returns
  */
-export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue: any, execTime: number) => void, transform = false ) {
+export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue: any, execTime: number) => void) {
     let oldValue: any
     let oldLen: number
     let newValueCache: any
@@ -106,8 +106,4 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
         },
         expr,
     })
-}
-
-export function asyncExecExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue?: any) => void) {
-    return execExpr(expr, ctxs, fn, true)
 }

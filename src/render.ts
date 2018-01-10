@@ -29,7 +29,9 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
         if (!(Com.prototype instanceof Component)) {
             const renderFn = Com
             Com = class extends Component {
-                render = renderFn
+                render(): string {
+                  return renderFn()
+                }
             }
         }
     } else if (isString(Com)) {
@@ -70,6 +72,7 @@ export default function render(Com: any, props: any, dom: FElement, vdom?:Virtua
             }, {
                 callback: newValue => {
                     ctx[key] = newValue
+                    return
                 }
             })
         )

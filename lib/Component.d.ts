@@ -2,7 +2,6 @@ import { VirtualDOM } from "./d";
 export interface LifeCycle {
     willMount(): any;
     didMount(): any;
-    didUpdate(): any;
     willUnmount(): any;
 }
 export interface Refs {

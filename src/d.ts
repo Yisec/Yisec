@@ -1,5 +1,5 @@
 import Component from "./Component";
-import FVEvents from "./FVEvents";
+import YSEvents from "./event/index";
 
 export interface EventAlias {
     eventName: string
@@ -14,7 +14,7 @@ export type exprDestroyFn = ()=>void
 
 export class VirtualDOM {
     exprs: exprDestroyFn[] = []
-    events = new FVEvents()
+    events = new YSEvents()
     parent: VirtualDOM
     children: VirtualDOM[] = []
     ctxs: any[] = []

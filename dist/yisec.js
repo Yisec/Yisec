@@ -18,6 +18,10 @@ function register(name, Com) {
   registerComponents[name] = Com;
 }
 
+/**
+ * 获取数据类型
+ * @param arg
+ */
 function getType(arg) {
     return Object.prototype.toString.call(arg).match(/\s(.+)]/)[1].toLowerCase();
 }
@@ -153,6 +157,8 @@ function getParentCtx() {
             return ctxs[i];
         }
     }
+    // 永远不会执行到这里
+    return new Component();
 }
 // 如果arr中存在keys中的元素，那么keys中的元素排序提前
 function resortArr() {
@@ -178,6 +184,66 @@ function isComponent(component, ast) {
     }
     console.error(component, ast.tagName + " should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Fv.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6");
     return false;
+}
+
+var eventCache = {};
+var gloablEventCache = {};
+var $root = document.documentElement;
+function on(element, key, fn) {
+    if (!eventCache[key]) {
+        gloablEventCache[key] = function (event) {
+            var target = event.target;
+            var cache = eventCache[key];
+            // 需要考虑的问题是，如何处理stopPropogation
+            var stopPropagation = event.stopPropagation;
+            var isStop = false; // 是否阻止冒泡
+            // 更改
+            event.stopPropagation = function () {
+                stopPropagation.call(event);
+                isStop = true;
+            };
+            for (var i = 0; i < cache.length; i++) {
+                var _cache$i = cache[i],
+                    _element = _cache$i.element,
+                    _fn2 = _cache$i.fn;
+
+                if (_element === target || _element.contains(target)) {
+                    _fn2.call(_element, event);
+                    if (isStop) {
+                        isStop = false;
+                        break;
+                    }
+                }
+            }
+        };
+        $root.addEventListener(key, gloablEventCache[key]);
+    }
+    var cache = eventCache[key] = eventCache[key] || [];
+    // 从组件角度来讲，都是先添加父元素，后添加子元素，因此事件的触发顺序是先触发子元素，再触发父元素的
+    // 因为这里每次都塞到头部
+    cache.unshift({ element: element, fn: fn });
+}
+function off(element, key, fn) {
+    Object.keys(eventCache).forEach(function (_key) {
+        if (_key === key || key === undefined) {
+            // 移除缓存
+            eventCache[_key] = eventCache[_key].filter(function (_ref) {
+                var _ele = _ref.element,
+                    _fn = _ref.fn;
+
+                if (_ele === element && (_fn === fn || fn === undefined)) {
+                    return false;
+                }
+                return true;
+            });
+            // 事件被卸载完毕处理
+            if (eventCache[_key].length === 0) {
+                $root.removeEventListener(_key, gloablEventCache[_key]);
+                delete gloablEventCache[_key];
+                delete eventCache[_key];
+            }
+        }
+    });
 }
 
 var classCallCheck = function (instance, Constructor) {
@@ -323,36 +389,38 @@ var toConsumableArray = function (arr) {
   }
 };
 
-/**
- * FVEvents 被用来统一处理事件监听
- * 待对事件统一代理处理，类jQuery形式
- * 现在，我们还是没有对事件进行全局挂载处理，而是在每个dom上绑定事件，性能较差，待优化
- */
-var FVEvents = function () {
-    function FVEvents() {
-        classCallCheck(this, FVEvents);
+var BubbleEventList = ['click', 'dblclick', 'touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup', 'keydown', 'keyup'];
+
+var YSEvents = function () {
+    function YSEvents() {
+        classCallCheck(this, YSEvents);
 
         this.cache = [];
     }
-    /**
-     * 事件绑定
-     */
+    // 事件绑定
 
 
-    createClass(FVEvents, [{
-        key: "on",
-        value: function on(element, key, fn) {
-            this.cache.push([key, fn]);
-            element.addEventListener(key, fn);
+    createClass(YSEvents, [{
+        key: 'on',
+        value: function on$$1(element, key, fn) {
+            if (!isFunction(fn)) {
+                console.error(fn, 'should be a Function');
+                return;
+            }
+            // 可冒泡的事件，绑定到documentElement上去，避免重复绑定事件
+            if (BubbleEventList.includes(key)) {
+                on(element, key, fn);
+            } else {
+                this.cache.push([key, fn]);
+                element.addEventListener(key, fn);
+            }
             return this;
         }
-        /**
-         * 事件移除
-         */
+        // 事件移除
 
     }, {
-        key: "off",
-        value: function off(element, key, fn) {
+        key: 'off',
+        value: function off$$1(element, key, fn) {
             this.cache = this.cache.filter(function (_ref) {
                 var _ref2 = slicedToArray(_ref, 2),
                     _key = _ref2[0],
@@ -366,10 +434,11 @@ var FVEvents = function () {
                         return false;
                     }
             });
+            off(element, key, fn);
             return this;
         }
     }]);
-    return FVEvents;
+    return YSEvents;
 }();
 
 var VirtualDOM = function () {
@@ -377,7 +446,7 @@ var VirtualDOM = function () {
         classCallCheck(this, VirtualDOM);
 
         this.exprs = [];
-        this.events = new FVEvents();
+        this.events = new YSEvents();
         this.children = [];
         this.ctxs = [];
         this.unmounted = false;
@@ -702,7 +771,6 @@ function autorun(fn) {
         destoryDepends = [];
         depends.splice(0, depends.length);
     };
-    destory.depends = depends;
     var wrapFn = function wrapFn() {
         // 显示之前依赖
         // console.log('before', depends.map(i => i.key))
@@ -720,75 +788,82 @@ function autorun(fn) {
         // console.log('after', depends.map(i => i.key))
         isFunction(options.callback) && options.callback(result);
     };
-    wrapFn.options = options;
+    // wrapFn.options = options
     // 立即执行
     wrapFn();
     return destory;
 }
 
-var parseExpr = function () {
-    var cache = {};
-    return function parseExpr(body) {
-        if (cache[body]) {
-            return cache[body];
-        }
-        // 去除字符串，剩下的都是变量
-        // 对于关键字new 和 对象的支持很懵逼
-        var params = (body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串 'ddd' "ddd"
-        .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key { aa: }
-        .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*\s*/g) || [] // 获取所有变量 .?aa
-        ).filter(function (i) {
-            return !/^\.|new\s+/.test(i);
-        }) // 去除.aa new
-        .map(function (i) {
-            return i.trim();
-        }); // 去除空格
-        params = uniqueArr(params);
-        var result = {
-            params: params,
-            body: body,
-            fn: new (Function.prototype.bind.apply(Function, [null].concat(toConsumableArray(params), ['return ' + body])))()
-        };
-        cache[body] = result;
-        return result;
+var cache = {};
+function parseExpr(body) {
+    if (cache[body]) {
+        return cache[body];
+    }
+    // 去除字符串，剩下的都是变量
+    // 对于关键字new 和 对象的支持很懵逼
+    var params = (body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串 'ddd' "ddd"
+    .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key { aa: }
+    .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*\s*/g) || [] // 获取所有变量 .?aa
+    ).filter(function (i) {
+        return !/^\.|new\s+/.test(i);
+    }) // 去除.aa new
+    .map(function (i) {
+        return i.trim();
+    }); // 去除空格
+    params = uniqueArr(params);
+    var result = {
+        params: params,
+        body: body,
+        fn: new (Function.prototype.bind.apply(Function, [null].concat(toConsumableArray(params), ['return ' + body])))()
     };
-}();
+    cache[body] = result;
+    return result;
+}
 
 // 分割表达式，只处理不重复的分隔符|
-var parseFilter = function () {
-    var parseFilterCache = {};
-    return function parseFilter() {
-        var str = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+var parseFilterCache = {};
+function parseFilter() {
+    var str = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
-        if (parseFilterCache[str]) {
-            return parseFilterCache[str];
-        }
-        var exprArr = [];
-        var current = '';
-        var index = 0;
-        while (index < str.length) {
-            var char = str[index];
-            if (char === '|' && !/\|\s*$/.test(current) && !/^\s*\|/.test(str.slice(index + 1))) {
-                exprArr.push(current);
-                current = '';
-            } else {
-                current += char;
-            }
+    if (parseFilterCache[str]) {
+        return parseFilterCache[str];
+    }
+    var exprArr = [];
+    var current = '';
+    var index = 0;
+    while (index < str.length) {
+        var char = str[index];
+        // 前后不能是| |
+        if (char === '|' && str[index - 1] !== '|' && str[index + 1] !== '|') {
+            exprArr.push(current);
             index += 1;
+            current = '';
+            continue;
+        } else if (char === "'" || char === '"') {
+            var _ref = str.slice(index).match(/^'[^']*'|^"[^"]*"/) || [],
+                _ref2 = slicedToArray(_ref, 1),
+                _ref2$ = _ref2[0],
+                matchStr = _ref2$ === undefined ? '' : _ref2$;
+
+            current += matchStr;
+            index += matchStr.length;
+            continue;
         }
-        exprArr.push(current);
-        var result = {
-            expr: exprArr[0],
-            pipes: exprArr.slice(1).map(function (i) {
-                return i.trim();
-            }).filter(function (i) {
-                return i;
-            })
-        };
-        parseFilterCache[str] = result;
-        return result;
+        current += char;
+        index += 1;
+    }
+    exprArr.push(current);
+    var result = {
+        expr: exprArr[0],
+        pipes: exprArr.slice(1).map(function (i) {
+            return i.trim();
+        }).filter(function (i) {
+            return i;
+        })
     };
-}();
+    parseFilterCache[str] = result;
+    return result;
+}
 
 var pipes = [];
 function addPipe() {
@@ -912,8 +987,10 @@ function testClass(vdom) {
     var ast = vdom.ast,
         element = vdom.dom;
 
-    type += type ? '-' : '';
-    var classProperties = ["@" + type + "class", type + "class"];
+    if (type) {
+        type += '-';
+    }
+    var classProperties = ["ys:expr:" + type + "class", ":" + type + "class", type + "class"];
     return Object.keys(ast.props).some(function (key) {
         return classProperties.includes(key);
     });
@@ -927,7 +1004,6 @@ function handleModuleCss(classNames, moduleMap) {
 // class
 // enter-class
 // leave-class
-// 
 function handleClass(vdom, ctxs, key) {
     var type = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : '';
     var node = vdom.ast,
@@ -938,7 +1014,7 @@ function handleClass(vdom, ctxs, key) {
     var moduleCss = ctxs[0].moduleCss;
 
     type += type ? '-' : '';
-    if (key === ":" + type + "class") {
+    if (key === ":" + type + "class" || key === "ys:expr:" + type + "class") {
         vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
             var classes = toClassNames(newValue);
             if (moduleCss) {
@@ -960,6 +1036,10 @@ function handleClass(vdom, ctxs, key) {
     return true;
 }
 
+/**
+ * 判断dom是否可以异步卸载
+ * @param vdom
+ */
 function handleLeave(vdom) {
     var leaveTime = vdom.ast.props.leaveTime;
 
@@ -987,6 +1067,10 @@ function handleEnter(vdom) {
     }
 }
 
+// 组件卸载，其实不应该一个元素一个元素的从dom移除，而应该整体性移除
+// 因为AST与真实的dom之间还存在差距，因此我们在AST的基础之上，根据指令等其他条件又生成了一个真实DOM的映射树
+// 用来处理DOM的增删
+// 卸载元素/组件的时候，需要卸载相对应的事件/与数据监听
 function unmountNode(vdom) {
     var removeDOM = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
 
@@ -1124,36 +1208,46 @@ var Component = function () {
 
 Component.defaultProps = {};
 
+// 支持嵌套的表达式匹配， 主要为了支持<span>{{a: b}}</span>
+// 性能优化，这可在startToken match后，查看后面是否有arr.length数量的endToken
 function getMatched() {
-    var start = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '{';
-    var end = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '}';
+    var start = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '<%';
+    var end = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '%>';
     var str = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
 
-    var process = [];
+    var START_LEN = start.length;
+    var END_LEN = end.length;
+    var index = 0;
+    var arr = [];
     var result = {
         matchStr: '',
         value: ''
     };
-    var index = 0;
-    var matchStr = '';
-    if (str[index] !== start) {
+    if (!str.startsWith(start)) {
         return result;
     }
     while (index < str.length) {
-        var token = str[index];
-        matchStr += token;
-        if (token === start) {
-            process.push(false);
-        } else if (token === end) {
-            process.pop();
-            if (process.length === 0) {
-                result.matchStr = matchStr;
-                result.value = matchStr.slice(1, -1);
-                return result;
+        // startToken
+        if (str.slice(index, index + START_LEN) === start) {
+            arr.push(false);
+            index += START_LEN;
+            continue;
+        } else if (str.slice(index, index + END_LEN) === end) {
+            index += END_LEN;
+            arr.pop();
+            if (arr.length === 0) {
+                var matchStr = str.slice(0, index);
+                return {
+                    matchStr: matchStr,
+                    value: matchStr.slice(START_LEN, -END_LEN)
+                };
             }
+            continue;
         }
+        // index++
         index += 1;
     }
+    // 匹配失败
     return result;
 }
 
@@ -1484,18 +1578,18 @@ function handleSVG(node) {
     });
     return node;
 }
-var cache = {};
+var cache$1 = {};
 // 字符串 => ast
 var toAST$1 = function () {
     var template = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
     // 使用缓存，不用再ast => dom的时候对ast进行修改
-    if (!cache[template]) {
+    if (!cache$1[template]) {
         var node = toAST(getToken(template), template);
         // 为node添加isSVG标示
-        cache[template] = handleSVG(node);
+        cache$1[template] = handleSVG(node);
     }
-    return cache[template];
+    return cache$1[template];
 };
 
 var isScroll = false;
@@ -1869,6 +1963,13 @@ function handleFor(value, element, ctxs, vdom, node) {
     }));
 }
 
+/**
+ * 处理ys:if命令
+ *
+ * @param {HTMLElement} parent
+ * @param {any} node
+ * @param {array} ctxs
+ */
 function handleIf(parent, node, ctxs, parentVdom) {
     var commentHook = document.createComment('ys:if 占位');
     parent.appendChild(commentHook);
@@ -1889,6 +1990,7 @@ function handleIf(parent, node, ctxs, parentVdom) {
     }));
 }
 
+// 需要优先处理的props key
 var NEED_RESET_KEY = [':key', DIRECTIVEPREV + 'if', DIRECTIVEPREV + 'show', DIRECTIVEPREV + 'for'];
 // key发生变化后，组件重新选案
 function handleKeyChange(vdom) {
@@ -2006,9 +2108,6 @@ function addProperties(element, vdom, ctxs) {
 }
 /**
  * 获取自定义组件属性
- * @param node
- * @param vdom
- * @param ctxs
  */
 function getProps(vdom, ctxs) {
     var node = vdom.ast;
@@ -2050,11 +2149,6 @@ function getProps(vdom, ctxs) {
 }
 /**
  * 添加元素
- *
- * @param {function} appendFn
- * @param {any} node
- * @param {array} ctxs
- * @returns
  */
 function addElement(appendFn, ast, ctxs, parentVdom) {
     var vdom = new VirtualDOM(parentVdom);
@@ -2062,7 +2156,7 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
     vdom.ctxs = ctxs;
     // 方便dom卸载后，重新渲染
     vdom.reRender = function () {
-        return addElement(appendFn, ast, ctxs, parentVdom);
+        addElement(appendFn, ast, ctxs, parentVdom);
     };
     if (/^[A-Z]/.test(ast.tagName)) {
         // 处理子组件
@@ -2099,13 +2193,18 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
                 renderComponent(Com);
             }
         }
-    } else if (ast.tagName == 'slot') {
+    } else if (ast.tagName === 'slot') {
         // 处理slot，获取children后，并不监听变化
         execExpr('props.children', ctxs, function (newValue) {
             transform(newValue.node, {
                 appendChild: appendFn
             }, [getProps(vdom, ctxs)].concat(toConsumableArray(newValue.ctxs)), parentVdom);
         })();
+    } else if (ast.tagName === 'template') {
+        appendFn(null, vdom); // 添加vdom
+        transform(ast, {
+            appendChild: appendFn
+        }, ctxs, vdom);
     } else {
         var createE = vdom.ast.isSVG ? document.createElementNS('http://www.w3.org/2000/svg', ast.tagName) // 添加svg支持
         : document.createElement(ast.tagName);
@@ -2164,6 +2263,12 @@ function transform(ast, element, ctxs) {
     };
 }
 
+/**
+ * @param {any} Com
+ * @param {*} props
+ * @param {HTMLElement} dom
+ * @returns {Component}
+ */
 function render(Com, props, dom, vdom) {
     // 卸载原有dom上挂载的component
     if (dom instanceof HTMLElement && dom[COMPONENT_DOM_HOOK] && dom[COMPONENT_DOM_HOOK].vdom && !dom[COMPONENT_DOM_HOOK].vdom.unmounted) {
@@ -2179,13 +2284,15 @@ function render(Com, props, dom, vdom) {
 
                 function Com() {
                     classCallCheck(this, Com);
-
-                    var _this = possibleConstructorReturn(this, (Com.__proto__ || Object.getPrototypeOf(Com)).apply(this, arguments));
-
-                    _this.render = renderFn;
-                    return _this;
+                    return possibleConstructorReturn(this, (Com.__proto__ || Object.getPrototypeOf(Com)).apply(this, arguments));
                 }
 
+                createClass(Com, [{
+                    key: 'render',
+                    value: function render() {
+                        return renderFn();
+                    }
+                }]);
                 return Com;
             }(Component);
         }
@@ -2233,6 +2340,7 @@ function render(Com, props, dom, vdom) {
         }, {
             callback: function callback(newValue) {
                 ctx[key] = newValue;
+                return;
             }
         }));
     });

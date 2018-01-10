@@ -1,6 +1,6 @@
 {
   "name": "yisec",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Yisec is a web component framework",
   "main": "./dist/yisec.js",
   "typings": "./lib/index.d.ts",

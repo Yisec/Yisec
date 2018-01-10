@@ -10,10 +10,13 @@ function updateClassName(element: HTMLElement, classNames) {
 
 export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
     const { ast, dom: element } = vdom
-    type += (type ? '-' : '')
+    if (type) {
+        type += '-'
+    }
 
     const classProperties = [
-        `@${type}class`,
+        `ys:expr:${type}class`,
+        `:${type}class`,
         `${type}class`,
     ]
 
@@ -30,7 +33,6 @@ function handleModuleCss(classNames, moduleMap) {
 // class
 // enter-class
 // leave-class
-// 
 export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string, type: string = '') :boolean {
     const { ast: node, dom: element } = vdom
     const value = node.props[key]
@@ -39,7 +41,7 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
 
     type += (type ? '-' : '')
 
-    if (key === `:${type}class`) {
+    if (key === `:${type}class` || key === `ys:expr:${type}class`) {
         vdom.exprs.push(
             execExpr(value, ctxs, (newValue, oldValue) => {
                 let classes = toClassNames(newValue)
@@ -50,7 +52,6 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
 
                 updateClassName(element, classNames)
             })
-
         )
     } else if (key === `${type}class`) {
         let classes = value

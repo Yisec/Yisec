@@ -42,10 +42,14 @@ export declare function isObserve(obj: any): boolean;
  */
 export declare function observer(obj: any, options?: ObserveOptions): any;
 export declare function observerDeep(obj: any): any;
+export interface AutorunOption {
+    callback?: any;
+    expr?: string;
+}
 /**
  * 接受函数，当依赖的数据发生变化后，会立即执行函数
  *
  * @param {function} fn
  * @returns
  */
-export declare function autorun(fn: () => void, options?: {}): () => void;
+export declare function autorun(fn: () => void, options?: AutorunOption): () => void;

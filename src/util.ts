@@ -4,7 +4,7 @@ import { ASTNode } from "./d";
 
 /**
  * 获取数据类型
- * @param arg 
+ * @param arg
  */
 export function getType(arg: any): string {
     return Object.prototype.toString.call(arg).match(/\s(.+)]/)[1].toLowerCase()
@@ -36,7 +36,7 @@ export function isPromise(...args) {
 
 /**
  * 转classname
- * @param v 
+ * @param v
  */
 export function toClassNames(v: any): string {
     switch (getType(v)) {
@@ -74,8 +74,8 @@ export function ST(fn: () => void, time: number) {
 }
 
 // 移除重复元素
-export function uniqueArr(arr = []) {
-    const newArr = []
+export function uniqueArr<T>(arr:T[] = []) :T[] {
+    const newArr:T[] = []
     arr.forEach(item => {
         if (!newArr.includes(item)) {
             newArr.push(item)
@@ -123,12 +123,14 @@ export function getComponent(name: string = '', ctxs: any[] = []) {
     return registerComponents[name]
 }
 
-export function getParentCtx(ctxs: object[] = []): Component {
+export function getParentCtx(ctxs: any[] = []): Component {
     for (let i=0; i< ctxs.length; i++) {
         if (ctxs[i] instanceof Component) {
             return ctxs[i]
         }
     }
+    // 永远不会执行到这里
+    return new Component()
 }
 
 // 如果arr中存在keys中的元素，那么keys中的元素排序提前

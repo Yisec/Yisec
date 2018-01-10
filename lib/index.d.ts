@@ -1,6 +1,6 @@
 import Component from './Component';
 import render from './render';
-import { autorun, observer, isObserve, addObserve, ObserveOptions, observerDeep } from './autorun';
+import { autorun, observer, isObserve, addObserve, ObserveOptions, observerDeep, AutorunOption } from './autorun';
 import register, { registerComponents } from "./register";
 import { addEventAlias } from "./eventAlias";
 import { addPipe } from "./execExpr";
@@ -11,7 +11,7 @@ import router from './router';
 declare const _default: {
     Component: typeof Component;
     render: (Com: any, props: any, dom: FElement, vdom?: VirtualDOM | undefined) => Component;
-    autorun: (fn: () => void, options?: {}) => () => void;
+    autorun: (fn: () => void, options?: AutorunOption) => () => void;
     observer: (obj: any, options?: ObserveOptions) => any;
     isObserve: (obj: any) => boolean;
     addObserve: (ctx: any, key: string, defaultValue?: any, options?: ObserveOptions) => void;

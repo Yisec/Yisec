@@ -5,7 +5,6 @@ import { unmountNode } from "./unmount";
 export interface LifeCycle {
     willMount()
     didMount()
-    didUpdate()
     willUnmount()
 }
 

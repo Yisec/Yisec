@@ -23,7 +23,7 @@ export interface FElement {
     appendChild: (child: Node) => Node;
 }
 export declare function ST(fn: () => void, time: number): void;
-export declare function uniqueArr(arr?: never[]): never[];
+export declare function uniqueArr<T>(arr?: T[]): T[];
 export declare function merge(...anys: any[]): any;
 /**
  * 绑定this
@@ -33,6 +33,6 @@ export declare function merge(...anys: any[]): any;
 export declare function bindContext(fn: any, ctx: object): any;
 export declare function uuid(len?: number): string;
 export declare function getComponent(name?: string, ctxs?: any[]): any;
-export declare function getParentCtx(ctxs?: object[]): Component;
+export declare function getParentCtx(ctxs?: any[]): Component;
 export declare function resortArr(arr?: any[], keys?: any[]): any[];
 export declare function isComponent(component: any, ast: ASTNode): boolean;

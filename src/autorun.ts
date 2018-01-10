@@ -201,13 +201,18 @@ export function observerDeep(obj: any) {
     return observer(obj, { deep: true })
 }
 
+export interface AutorunOption {
+    callback?: any
+    expr?: string
+}
+
 /**
  * 接受函数，当依赖的数据发生变化后，会立即执行函数
  *
  * @param {function} fn
  * @returns
  */
-export function autorun(fn: ()=> void, options = {}) {
+export function autorun(fn: ()=> void, options: AutorunOption = {}) {
     let destoryDepends: DestoryFn[] = []
     let depends: Depends[] = []
     // 销毁依赖
@@ -216,7 +221,6 @@ export function autorun(fn: ()=> void, options = {}) {
         destoryDepends = []
         depends.splice(0, depends.length)
     }
-    destory.depends = depends
 
     const wrapFn = () => {
         // 显示之前依赖
@@ -235,7 +239,7 @@ export function autorun(fn: ()=> void, options = {}) {
         // console.log('after', depends.map(i => i.key))
         isFunction(options.callback) && options.callback(result)
     }
-    wrapFn.options = options
+    // wrapFn.options = options
 
     // 立即执行
     wrapFn()
