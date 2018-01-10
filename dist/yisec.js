@@ -18,10 +18,6 @@ function register(name, Com) {
   registerComponents[name] = Com;
 }
 
-/**
- * 获取数据类型
- * @param arg
- */
 function getType(arg) {
     return Object.prototype.toString.call(arg).match(/\s(.+)]/)[1].toLowerCase();
 }
@@ -1036,10 +1032,6 @@ function handleClass(vdom, ctxs, key) {
     return true;
 }
 
-/**
- * 判断dom是否可以异步卸载
- * @param vdom
- */
 function handleLeave(vdom) {
     var leaveTime = vdom.ast.props.leaveTime;
 
@@ -1067,10 +1059,6 @@ function handleEnter(vdom) {
     }
 }
 
-// 组件卸载，其实不应该一个元素一个元素的从dom移除，而应该整体性移除
-// 因为AST与真实的dom之间还存在差距，因此我们在AST的基础之上，根据指令等其他条件又生成了一个真实DOM的映射树
-// 用来处理DOM的增删
-// 卸载元素/组件的时候，需要卸载相对应的事件/与数据监听
 function unmountNode(vdom) {
     var removeDOM = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
 
@@ -1257,9 +1245,6 @@ function getMatched() {
 // 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层
 // 自身的逻辑层可以作为控制器
 // 再加一个Model作为数据来源
-/**
- * 半闭合标签 可以以 > 或 /> 结尾
- */
 var selfCloseElements = ['img', 'br', 'hr', 'input'];
 // 我们应该在解析关键字的同时，保留原始字符串
 var M = {
@@ -1963,13 +1948,6 @@ function handleFor(value, element, ctxs, vdom, node) {
     }));
 }
 
-/**
- * 处理ys:if命令
- *
- * @param {HTMLElement} parent
- * @param {any} node
- * @param {array} ctxs
- */
 function handleIf(parent, node, ctxs, parentVdom) {
     var commentHook = document.createComment('ys:if 占位');
     parent.appendChild(commentHook);
@@ -1990,7 +1968,6 @@ function handleIf(parent, node, ctxs, parentVdom) {
     }));
 }
 
-// 需要优先处理的props key
 var NEED_RESET_KEY = [':key', DIRECTIVEPREV + 'if', DIRECTIVEPREV + 'show', DIRECTIVEPREV + 'for'];
 // key发生变化后，组件重新选案
 function handleKeyChange(vdom) {
@@ -2263,12 +2240,6 @@ function transform(ast, element, ctxs) {
     };
 }
 
-/**
- * @param {any} Com
- * @param {*} props
- * @param {HTMLElement} dom
- * @returns {Component}
- */
 function render(Com, props, dom, vdom) {
     // 卸载原有dom上挂载的component
     if (dom instanceof HTMLElement && dom[COMPONENT_DOM_HOOK] && dom[COMPONENT_DOM_HOOK].vdom && !dom[COMPONENT_DOM_HOOK].vdom.unmounted) {
@@ -2358,6 +2329,7 @@ function render(Com, props, dom, vdom) {
 var Router = {
     hash: false,
     routes: {},
+    $root: document.body,
     push: function push(url) {
         window.history.pushState({}, '', this.getFullPath(url));
         this.handleUrlChange(url);
@@ -2379,7 +2351,7 @@ var Router = {
                 _value$props = value.props,
                 props = _value$props === undefined ? {} : _value$props;
 
-            render(component, Object.assign({}, props, { params: params }), document.body);
+            render(component, Object.assign({}, props, { params: params }), this.$root);
         }
     },
     getFullPath: function getFullPath(url) {

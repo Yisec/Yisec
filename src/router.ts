@@ -28,6 +28,7 @@ export interface RouterConfig {
 let Router = {
     hash: false,
     routes: {},
+    $root: document.body,
     push(url) {
         window.history.pushState({}, '', this.getFullPath(url))
         this.handleUrlChange(url)
@@ -44,7 +45,7 @@ let Router = {
         if (result) {
             const { router, params, value } = result
             const { component, props = {} } = value
-            render(component, { ...props, params }, document.body)
+            render(component, { ...props, params }, this.$root)
         }
     },
     getFullPath(url) {
