@@ -14,4 +14,3 @@ export const registerComponents = {}
 export default function register(name: string, Com: typeof Component ) {
     registerComponents[name] = Com
 }
-

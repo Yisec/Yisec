@@ -8,3 +8,4 @@ export declare function execExprIm(expr: string | undefined, ctxs: any[]): any;
  * @returns
  */
 export declare function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue: any, execTime: number) => void): () => void;
+export declare function execExprOnce(expr: string, ctxs: any[]): any;

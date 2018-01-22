@@ -107,3 +107,15 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
         expr,
     })
 }
+
+// 执行一次，获取值
+export function execExprOnce(expr: string, ctxs: any[]) :any {
+    let returnValue
+    if (!expr.trim()) {
+        return undefined
+    }
+    execExpr(expr, ctxs, (value) => {
+        returnValue = value
+    })()
+    return returnValue
+}

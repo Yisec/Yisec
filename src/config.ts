@@ -1,5 +1,7 @@
 // yisec指令前缀
-export const DIRECTIVEPREV = 'ys:'
+export const DIRECTIVE_PREV = 'ys:'
+
+export const DIRECTIVE_EXPR = 'ys:expr:'
 
 // 组件挂载到dom上的key
 export const COMPONENT_DOM_HOOK = '__yisec_component_hook__'

@@ -28,10 +28,10 @@ import { handleEnter } from "./domLifeCycle";
 import handleFor from "./directive/for";
 import handleIf from "./directive/if";
 
-import { DIRECTIVEPREV } from "./config";
+import { DIRECTIVE_PREV, DIRECTIVE_EXPR } from "./config";
 
 // 需要优先处理的props key
-const NEED_RESET_KEY = [':key', `${DIRECTIVEPREV}if`, `${DIRECTIVEPREV}show`, `${DIRECTIVEPREV}for`]
+const NEED_RESET_KEY = [':key', `${DIRECTIVE_PREV}if`, `${DIRECTIVE_PREV}show`, `${DIRECTIVE_PREV}for`]
 
 // key发生变化后，组件重新选案
 function handleKeyChange(vdom: VirtualDOM) {
@@ -59,7 +59,7 @@ function handleDangerousHTML(vdom: VirtualDOM, ctxs:any[] = [], key = '') :boole
  * @param {array} ctxs
  * @returns
  */
-function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
+function addProperties(element: HTMLElement|SVGElement, vdom: VirtualDOM, ctxs: any[]) {
     const {ast: node} = vdom
     const info = {
         transformChildren: true, // 是否渲染子节点
@@ -78,7 +78,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
 
         const KEY = key.slice(1)
         // 处理事件绑定
-        if (key.startsWith('@')) {
+        if (key.startsWith('@') && element instanceof HTMLElement) {
             let aliasListeners: EventAlias[] = []
             vdom.exprs.push(
                 execExpr(value, ctxs, (newValue, oldValue) => {
@@ -102,9 +102,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
         else if (key.startsWith(':')) {
             vdom.exprs.push(
                 execExpr(value, ctxs, (newValue, oldValue, execTime) => {
-                    if (
-                        ['checked', 'value'].includes(KEY)
-                    ) {
+                    if ( ['checked', 'value'].includes(KEY) ) {
                         element[KEY] = newValue
                     }
                     // 处理style
@@ -122,8 +120,8 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
             )
         }
         // 处理指令
-        else if (key.startsWith(DIRECTIVEPREV)) {
-            const directive = key.slice(DIRECTIVEPREV.length)
+        else if (key.startsWith(DIRECTIVE_PREV)) {
+            const directive = key.slice(DIRECTIVE_PREV.length)
             // 显示
             if (directive === 'show') {
                 vdom.exprs.push(
@@ -155,9 +153,10 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                 )
             }
             // 处理表达式，表达式不会对依赖进行watch
-            else if (directive.startsWith('expr:')) {
+            else if (directive.startsWith(DIRECTIVE_EXPR)) {
+                const KEY = directive.slice(DIRECTIVE_EXPR.length)
                 execExpr(value, ctxs, (newValue, oldValue) => {
-                    element.setAttribute(directive.slice('expr:'.length), newValue)
+                    element.setAttribute(KEY, newValue)
                 })()
             }
         }
@@ -169,7 +168,7 @@ function addProperties(element: HTMLElement, vdom: VirtualDOM, ctxs: any[]) {
                     break
                 }
                 case 'function': {
-                    value()
+                    value(vdom.dom)
                     break
                 }
             }
@@ -294,7 +293,7 @@ export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: Virt
         vdom.dom = createE
         appendFn(createE, vdom)
         const result = addProperties(createE, vdom, ctxs)
-        handleEnter(vdom) // 处理enter-class
+        vdom.oncreate()
         result.transformChildren && ast.children && ast.children.length && transform(ast, createE, ctxs, vdom)
     }
 
@@ -312,7 +311,7 @@ function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom: Vir
     const vdoms = ast.children.map(node => {
         if (node.type === 'element' || node.type === 'component') {
             // 处理ys:if指令
-            if (node.props[`${DIRECTIVEPREV}if`]) {
+            if (node.props[`${DIRECTIVE_PREV}if`]) {
                 handleIf(element, node, ctxs, parentVdom)
             } else {
                 return addElement((createE) => {

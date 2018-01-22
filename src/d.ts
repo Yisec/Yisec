@@ -1,5 +1,8 @@
 import Component from "./Component";
 import YSEvents from "./event/index";
+import { handleEnter, handleLeave } from "./domLifeCycle";
+import { execExpr, execExprOnce } from "./execExpr";
+import { DIRECTIVE_EXPR } from "./config";
 
 export interface EventAlias {
     eventName: string
@@ -12,7 +15,15 @@ export interface Props {
 
 export type exprDestroyFn = ()=>void
 
-export class VirtualDOM {
+export interface DOMLifeCycle {
+    // dom被创建
+    oncreate(): void
+    // dom将要被卸载，可返回一个Promise
+    onunmount(): void
+}
+
+// sssdddd
+export class VirtualDOM implements DOMLifeCycle {
     exprs: exprDestroyFn[] = []
     events = new YSEvents()
     parent: VirtualDOM
@@ -30,10 +41,54 @@ export class VirtualDOM {
             this.parent.children.push(this)
         }
     }
+    // dom create 回调
+    oncreate() {
+        const { dom } = this;
+        if (dom) {
+            const { [`${DIRECTIVE_EXPR}oncreate`]: fnExpr = '' } = this.ast.props
+            const fn = execExprOnce(fnExpr, this.ctxs)
+            // add enter class
+            handleEnter(this)
+            fn && fn(dom, this)
+        }
+    }
+    // onupdate(key, newValue, olValue) {
+    //     const { dom } = this;
+    //     const { onupdate: fn } = this.ast.props
+    //     if (dom && fn) {
+    //         fn(key, newValue, olValue)
+    //     }
+    // }
+    // dom unmount 回调
+    onunmount() {
+        const { dom } = this;
+        // add leave class
+        if (dom) {
+            const { [`${DIRECTIVE_EXPR}onunmount`]: fnExpr = '' } = this.ast.props
+            const fn = execExprOnce(fnExpr, this.ctxs)
+            const resultResult = handleLeave(this)
+            const fnResult = fn && fn(dom)
+            // 判断执行结果中是否有Promise
+            const pList = [resultResult, fnResult].filter(r => (r instanceof Promise))
+            if (pList.length) {
+                // 等待所有任务结束
+                Promise.all(pList).then(() => {
+                    dom.parentElement && dom.parentElement.removeChild(dom)
+                })
+            } else {
+                dom.parentElement && dom.parentElement.removeChild(dom)
+            }
+        }
+    }
+    // 卸载vdom
     unmount() {
+        // 关闭依赖追踪
         this.exprs.forEach(fn => fn())
+        // 卸载事件监听
         ;(this.dom instanceof HTMLElement) && this.events.off(this.dom)
+        // 如果是组件，卸载组件
         this.component && this.component.__willUnmount()
+        // vdom已卸载
         this.unmounted = true
     }
 }

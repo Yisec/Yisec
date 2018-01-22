@@ -5,7 +5,7 @@ import handleClass, { testClass } from "./property/handleClass";
  * 判断dom是否可以异步卸载
  * @param vdom
  */
-export function handleLeave(vdom: VirtualDOM) : boolean {
+export function handleLeave(vdom: VirtualDOM) : boolean|Promise<void> {
     const { leaveTime } = vdom.ast.props
     if (vdom.dom && leaveTime && testClass(vdom, 'leave')) {
         // vdom.dom.className += ` ${leaveClass}`
@@ -13,10 +13,9 @@ export function handleLeave(vdom: VirtualDOM) : boolean {
             handleClass(vdom, vdom.ctxs, key, 'leave')
         })
 
-        setTimeout(() => {
-            vdom.dom && vdom.dom.parentElement && vdom.dom.parentElement.removeChild(vdom.dom)
-        }, +leaveTime)
-        return false
+        return new Promise(res => {
+            setTimeout(res, Number(leaveTime))
+        })
     }
     return true
 }

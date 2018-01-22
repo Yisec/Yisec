@@ -437,66 +437,6 @@ var YSEvents = function () {
     return YSEvents;
 }();
 
-var VirtualDOM = function () {
-    function VirtualDOM(parent) {
-        classCallCheck(this, VirtualDOM);
-
-        this.exprs = [];
-        this.events = new YSEvents();
-        this.children = [];
-        this.ctxs = [];
-        this.unmounted = false;
-        this.classNames = {};
-        if (parent) {
-            this.parent = parent;
-            this.parent.children.push(this);
-        }
-    }
-
-    createClass(VirtualDOM, [{
-        key: 'unmount',
-        value: function unmount() {
-            this.exprs.forEach(function (fn) {
-                return fn();
-            });
-            this.dom instanceof HTMLElement && this.events.off(this.dom);
-            this.component && this.component.__willUnmount();
-            this.unmounted = true;
-        }
-    }]);
-    return VirtualDOM;
-}();
-var TokenElement = function TokenElement(type, index, value) {
-    var origin = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : value;
-    var isExpr = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
-    classCallCheck(this, TokenElement);
-
-    this.type = type;
-    this.index = index;
-    this.value = value;
-    this.origin = origin;
-    this.isExpr = isExpr;
-};
-/**
- * AST节点
- * @class ASTNode
- */
-var ASTNode = function ASTNode() {
-    var tagName = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-    classCallCheck(this, ASTNode);
-
-    this.children = []; // 子节点
-    this.props = {}; // props
-    this.type = 'element'; // 节点类型
-    this.exprs = [];
-    this.isSVG = false; // 是不是svg节点
-    this.tagName = tagName;
-    // 判断是不是组件
-    if (/^[A-Z]/.test(tagName)) {
-        this.type = 'component';
-    }
-};
-
 var queue = [];
 var timeout = void 0;
 var isUpdating = false;
@@ -537,7 +477,8 @@ function forceUpdate() {
 }
 
 // yisec指令前缀
-var DIRECTIVEPREV = 'ys:';
+var DIRECTIVE_PREV = 'ys:';
+var DIRECTIVE_EXPR = 'ys:expr:';
 // 组件挂载到dom上的key
 var COMPONENT_DOM_HOOK = '__yisec_component_hook__';
 var OBSERVE_ID = '__observeID__';
@@ -970,6 +911,17 @@ function execExpr(expr, ctxs, fn) {
         expr: expr
     });
 }
+// 执行一次，获取值
+function execExprOnce(expr, ctxs) {
+    var returnValue = void 0;
+    if (!expr.trim()) {
+        return undefined;
+    }
+    execExpr(expr, ctxs, function (value) {
+        returnValue = value;
+    })();
+    return returnValue;
+}
 
 function updateClassName(element, classNames) {
     element.className = Object.keys(classNames).map(function (key) {
@@ -986,7 +938,7 @@ function testClass(vdom) {
     if (type) {
         type += '-';
     }
-    var classProperties = ["ys:expr:" + type + "class", ":" + type + "class", type + "class"];
+    var classProperties = ["" + DIRECTIVE_EXPR + type + "class", ":" + type + "class", type + "class"];
     return Object.keys(ast.props).some(function (key) {
         return classProperties.includes(key);
     });
@@ -1010,6 +962,9 @@ function handleClass(vdom, ctxs, key) {
     var moduleCss = ctxs[0].moduleCss;
 
     type += type ? '-' : '';
+    if (!(element instanceof HTMLElement)) {
+        return true;
+    }
     if (key === ":" + type + "class" || key === "ys:expr:" + type + "class") {
         vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
             var classes = toClassNames(newValue);
@@ -1019,6 +974,7 @@ function handleClass(vdom, ctxs, key) {
             classNames[key] = classes;
             updateClassName(element, classNames);
         }));
+        return true;
     } else if (key === type + "class") {
         var classes = value;
         if (moduleCss) {
@@ -1026,10 +982,9 @@ function handleClass(vdom, ctxs, key) {
         }
         classNames[key] = classes;
         updateClassName(element, classNames);
-    } else {
-        return false;
+        return true;
     }
-    return true;
+    return false;
 }
 
 function handleLeave(vdom) {
@@ -1040,10 +995,9 @@ function handleLeave(vdom) {
         Object.keys(vdom.ast.props).forEach(function (key) {
             handleClass(vdom, vdom.ctxs, key, 'leave');
         });
-        setTimeout(function () {
-            vdom.dom && vdom.dom.parentElement && vdom.dom.parentElement.removeChild(vdom.dom);
-        }, +leaveTime);
-        return false;
+        return new Promise(function (res) {
+            setTimeout(res, Number(leaveTime));
+        });
     }
     return true;
 }
@@ -1059,6 +1013,128 @@ function handleEnter(vdom) {
     }
 }
 
+var VirtualDOM = function () {
+    function VirtualDOM(parent) {
+        classCallCheck(this, VirtualDOM);
+
+        this.exprs = [];
+        this.events = new YSEvents();
+        this.children = [];
+        this.ctxs = [];
+        this.unmounted = false;
+        this.classNames = {};
+        if (parent) {
+            this.parent = parent;
+            this.parent.children.push(this);
+        }
+    }
+    // dom create 回调
+
+
+    createClass(VirtualDOM, [{
+        key: "oncreate",
+        value: function oncreate() {
+            var dom = this.dom;
+
+            if (dom) {
+                var _ast$props$ = this.ast.props[DIRECTIVE_EXPR + "oncreate"],
+                    fnExpr = _ast$props$ === undefined ? '' : _ast$props$;
+
+                var fn = execExprOnce(fnExpr, this.ctxs);
+                // add enter class
+                handleEnter(this);
+                fn && fn(dom, this);
+            }
+        }
+        // onupdate(key, newValue, olValue) {
+        //     const { dom } = this;
+        //     const { onupdate: fn } = this.ast.props
+        //     if (dom && fn) {
+        //         fn(key, newValue, olValue)
+        //     }
+        // }
+        // dom unmount 回调
+
+    }, {
+        key: "onunmount",
+        value: function onunmount() {
+            var dom = this.dom;
+            // add leave class
+
+            if (dom) {
+                var _ast$props$2 = this.ast.props[DIRECTIVE_EXPR + "onunmount"],
+                    fnExpr = _ast$props$2 === undefined ? '' : _ast$props$2;
+
+                var fn = execExprOnce(fnExpr, this.ctxs);
+                var resultResult = handleLeave(this);
+                var fnResult = fn && fn(dom);
+                // 判断执行结果中是否有Promise
+                var pList = [resultResult, fnResult].filter(function (r) {
+                    return r instanceof Promise;
+                });
+                if (pList.length) {
+                    // 等待所有任务结束
+                    Promise.all(pList).then(function () {
+                        dom.parentElement && dom.parentElement.removeChild(dom);
+                    });
+                } else {
+                    dom.parentElement && dom.parentElement.removeChild(dom);
+                }
+            }
+        }
+        // 卸载vdom
+
+    }, {
+        key: "unmount",
+        value: function unmount() {
+            // 关闭依赖追踪
+            this.exprs.forEach(function (fn) {
+                return fn();
+            });
+            this.dom instanceof HTMLElement && this.events.off(this.dom);
+            // 如果是组件，卸载组件
+            this.component && this.component.__willUnmount();
+            // vdom已卸载
+            this.unmounted = true;
+        }
+    }]);
+    return VirtualDOM;
+}();
+var TokenElement = function TokenElement(type, index, value) {
+    var origin = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : value;
+    var isExpr = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : false;
+    classCallCheck(this, TokenElement);
+
+    this.type = type;
+    this.index = index;
+    this.value = value;
+    this.origin = origin;
+    this.isExpr = isExpr;
+};
+/**
+ * AST节点
+ * @class ASTNode
+ */
+var ASTNode = function ASTNode() {
+    var tagName = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+    classCallCheck(this, ASTNode);
+
+    this.children = []; // 子节点
+    this.props = {}; // props
+    this.type = 'element'; // 节点类型
+    this.exprs = [];
+    this.isSVG = false; // 是不是svg节点
+    this.tagName = tagName;
+    // 判断是不是组件
+    if (/^[A-Z]/.test(tagName)) {
+        this.type = 'component';
+    }
+};
+
+// 组件卸载，其实不应该一个元素一个元素的从dom移除，而应该整体性移除
+// 因为AST与真实的dom之间还存在差距，因此我们在AST的基础之上，根据指令等其他条件又生成了一个真实DOM的映射树
+// 用来处理DOM的增删
+// 卸载元素/组件的时候，需要卸载相对应的事件/与数据监听
 function unmountNode(vdom) {
     var removeDOM = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
 
@@ -1068,9 +1144,7 @@ function unmountNode(vdom) {
     });
     vdom.unmount();
     // 如果vdom上有leave leaveTime
-    if (removeDOM && vdom.dom && handleLeave(vdom)) {
-        vdom.dom.parentElement && vdom.dom.parentElement.removeChild(vdom.dom);
-    }
+    removeDOM && vdom.onunmount();
     if (vdom.parent) {
         vdom.parent.children = vdom.parent.children.filter(function (i) {
             return i !== vdom;
@@ -1498,7 +1572,7 @@ function toAST() {
                         var propertyValue = getT(localIndex + 2);
                         // 如果propertyValue是表达式，并且key不以:|ys:|@开头，追加ys:expr:表示此key是一个表达式
                         if (propertyValue.isExpr && !/^:|@|ys:/.test(propertyKey)) {
-                            propertyKey = "ys:expr:" + propertyKey;
+                            propertyKey = "" + DIRECTIVE_EXPR + propertyKey;
                         }
                         props[propertyKey] = propertyValue.value;
                         localIndex += 3;
@@ -1848,7 +1922,7 @@ function diff() {
 
 function getKeyExpr(node) {
     var child = node.children[0];
-    return child && (child.props['key'] || child.props[':key'] || child.props[DIRECTIVEPREV + "expr:key"]);
+    return child && (child.props['key'] || child.props[':key'] || child.props[DIRECTIVE_PREV + "expr:key"]);
 }
 function handleFor(value, element, ctxs, vdom, node) {
     var _value$split$map = value.split(' in ').map(function (i) {
@@ -1871,7 +1945,7 @@ function handleFor(value, element, ctxs, vdom, node) {
     var keyValue = getKeyExpr(node);
     vdom.exprs.push(execExpr(arrName, ctxs, function (newValue) {
         if (node.children.length > 1) {
-            console.error(DIRECTIVEPREV + "for just should have one child");
+            console.error(DIRECTIVE_PREV + "for just should have one child");
         }
         // diff cache key
         var newKeyValue = newValue.map(function (item, index) {
@@ -1968,7 +2042,7 @@ function handleIf(parent, node, ctxs, parentVdom) {
     }));
 }
 
-var NEED_RESET_KEY = [':key', DIRECTIVEPREV + 'if', DIRECTIVEPREV + 'show', DIRECTIVEPREV + 'for'];
+var NEED_RESET_KEY = [':key', DIRECTIVE_PREV + 'if', DIRECTIVE_PREV + 'show', DIRECTIVE_PREV + 'for'];
 // key发生变化后，组件重新选案
 function handleKeyChange(vdom) {
     unmountNode(vdom);
@@ -2010,7 +2084,7 @@ function addProperties(element, vdom, ctxs) {
         if (handleDangerousHTML(vdom, ctxs, key)) return;
         var KEY = key.slice(1);
         // 处理事件绑定
-        if (key.startsWith('@')) {
+        if (key.startsWith('@') && element instanceof HTMLElement) {
             var aliasListeners = [];
             vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
                 if (eventAlias[KEY]) {
@@ -2040,8 +2114,8 @@ function addProperties(element, vdom, ctxs) {
                 }
                 element.setAttribute(KEY, newValue);
             }));
-        } else if (key.startsWith(DIRECTIVEPREV)) {
-            var directive = key.slice(DIRECTIVEPREV.length);
+        } else if (key.startsWith(DIRECTIVE_PREV)) {
+            var directive = key.slice(DIRECTIVE_PREV.length);
             // 显示
             if (directive === 'show') {
                 vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
@@ -2059,9 +2133,10 @@ function addProperties(element, vdom, ctxs) {
                 vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
                     element.innerHTML = newValue;
                 }));
-            } else if (directive.startsWith('expr:')) {
+            } else if (directive.startsWith(DIRECTIVE_EXPR)) {
+                var _KEY = directive.slice(DIRECTIVE_EXPR.length);
                 execExpr(value, ctxs, function (newValue, oldValue) {
-                    element.setAttribute(directive.slice('expr:'.length), newValue);
+                    element.setAttribute(_KEY, newValue);
                 })();
             }
         } else if (key === 'ref') {
@@ -2073,7 +2148,7 @@ function addProperties(element, vdom, ctxs) {
                     }
                 case 'function':
                     {
-                        value();
+                        value(vdom.dom);
                         break;
                     }
             }
@@ -2188,7 +2263,7 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
         vdom.dom = createE;
         appendFn(createE, vdom);
         var result = addProperties(createE, vdom, ctxs);
-        handleEnter(vdom); // 处理enter-class
+        vdom.oncreate();
         result.transformChildren && ast.children && ast.children.length && transform(ast, createE, ctxs, vdom);
     }
     return vdom;
@@ -2206,7 +2281,7 @@ function transform(ast, element, ctxs) {
     var vdoms = ast.children.map(function (node) {
         if (node.type === 'element' || node.type === 'component') {
             // 处理ys:if指令
-            if (node.props[DIRECTIVEPREV + 'if']) {
+            if (node.props[DIRECTIVE_PREV + 'if']) {
                 handleIf(element, node, ctxs, parentVdom);
             } else {
                 return addElement(function (createE) {

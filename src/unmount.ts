@@ -10,9 +10,7 @@ export function unmountNode(vdom: VirtualDOM, removeDOM = true) {
     vdom.children.forEach(i => unmountNode(i, removeDOM && !vdom.dom ))
     vdom.unmount()
     // 如果vdom上有leave leaveTime
-    if (removeDOM && vdom.dom && handleLeave(vdom)) {
-        vdom.dom.parentElement && vdom.dom.parentElement.removeChild(vdom.dom)
-    }
+    removeDOM && vdom.onunmount()
     if (vdom.parent) {
         vdom.parent.children = vdom.parent.children.filter(i => i !== vdom)
     }

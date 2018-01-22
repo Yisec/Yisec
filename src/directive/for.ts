@@ -3,14 +3,14 @@ import diff from "./diff";
 import { unmountChildren } from "../unmount";
 import { observer } from "../autorun";
 import transform from "../transform";
-import { DIRECTIVEPREV } from "../config";
+import { DIRECTIVE_PREV } from "../config";
 
 function getKeyExpr(node) {
     const child = node.children[0]
     return child && (
         child.props['key']
         || child.props[':key']
-        || child.props[`${DIRECTIVEPREV}expr:key`]
+        || child.props[`${DIRECTIVE_PREV}expr:key`]
     )
 }
 
@@ -26,7 +26,7 @@ export default function handleFor(value, element, ctxs, vdom, node) {
         execExpr(arrName, ctxs, (newValue, oldValue = []) => {
             // ys:for只应该含有一个子元素
             if (node.children.length > 1) {
-                console.error(`${DIRECTIVEPREV}for just should have one child`)
+                console.error(`${DIRECTIVE_PREV}for just should have one child`)
             }
             // diff cache key
             const newKeyValue = newValue.map((item, index) => {

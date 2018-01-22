@@ -1,6 +1,7 @@
 import { VirtualDOM } from "./../d";
 import { execExpr } from "./../execExpr";
 import { toClassNames } from "./../util";
+import { DIRECTIVE_EXPR } from "../config";
 
 function updateClassName(element: HTMLElement, classNames) {
     element.className = Object.keys(classNames)
@@ -15,7 +16,7 @@ export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
     }
 
     const classProperties = [
-        `ys:expr:${type}class`,
+        `${DIRECTIVE_EXPR}${type}class`,
         `:${type}class`,
         `${type}class`,
     ]
@@ -41,6 +42,10 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
 
     type += (type ? '-' : '')
 
+    if (!(element instanceof HTMLElement)) {
+        return true
+    }
+
     if (key === `:${type}class` || key === `ys:expr:${type}class`) {
         vdom.exprs.push(
             execExpr(value, ctxs, (newValue, oldValue) => {
@@ -53,6 +58,7 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
                 updateClassName(element, classNames)
             })
         )
+        return true
     } else if (key === `${type}class`) {
         let classes = value
         if (moduleCss) {
@@ -61,9 +67,8 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
         classNames[key] = classes
 
         updateClassName(element, classNames)
+        return true
 
-    } else {
-        return false
     }
-    return true
+    return false
 }

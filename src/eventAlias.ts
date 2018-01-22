@@ -125,8 +125,8 @@ const eventAlias = {
 
 /**
  * 添加事件别名
- * @param eventName 
- * @param fn 
+ * @param eventName
+ * @param fn
  */
 export function addEventAlias(eventName: string, fn) {
     eventAlias[eventName] = fn

@@ -8,7 +8,11 @@ export interface Props {
     [propName: string]: any;
 }
 export declare type exprDestroyFn = () => void;
-export declare class VirtualDOM {
+export interface DOMLifeCycle {
+    oncreate(): void;
+    onunmount(): void;
+}
+export declare class VirtualDOM implements DOMLifeCycle {
     exprs: exprDestroyFn[];
     events: YSEvents;
     parent: VirtualDOM;
@@ -21,6 +25,8 @@ export declare class VirtualDOM {
     ast: ASTNode;
     reRender: any;
     constructor(parent?: VirtualDOM);
+    oncreate(): void;
+    onunmount(): void;
     unmount(): void;
 }
 export declare class TokenElement {
