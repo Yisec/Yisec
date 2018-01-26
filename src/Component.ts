@@ -35,37 +35,38 @@ export default class Component implements LifeCycle {
     render() : string {
         return this.template
     }
-    // 触发props上的事件
+    // 向父组件派发事件
     $emit = (key, ...data) => {
         let parent = this.parent
         let stopBubble = false
         while (!stopBubble && parent) {
-            const fn = parent.emit[key] || parent[key]
+            const fn = parent[key]
             if (isFunction(fn)) {
                 stopBubble = fn.call(parent,...data) === false
             }
             parent = parent.parent
         }
     }
+    // 向子组件派发事件
     $emitChildren = (key, ...data) => {
         function children(node) {
             node.children.forEach(item => {
-                const fn = item.emit[key] || item[key]
+                const fn = item[key]
                 isFunction(fn) && fn.call(item, ...data)
                 children(item)
             })
         }
         children(this)
     }
+    // 向同级组件派发事件
     $emitSiblings = (key, ...data) => {
         this.parent && this.parent.children.forEach(item => {
             if (item !== this) {
-                const fn = item.emit[key] || item[key]
+                const fn = item[key]
                 isFunction(fn) && fn.call(item, ...data)
             }
         })
     }
-    emit = {}
     willMount(){}
     didMount(){}
     didUpdate(){}

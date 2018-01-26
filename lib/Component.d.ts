@@ -22,7 +22,6 @@ export default class Component implements LifeCycle {
     $emit: (key: any, ...data: any[]) => void;
     $emitChildren: (key: any, ...data: any[]) => void;
     $emitSiblings: (key: any, ...data: any[]) => void;
-    emit: {};
     willMount(): void;
     didMount(): void;
     didUpdate(): void;

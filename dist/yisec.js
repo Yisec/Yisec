@@ -1176,7 +1176,7 @@ var Component = function () {
         this.vdom = new VirtualDOM();
         // 方便template直接获取经过复杂计算的数据
         this.computed = {};
-        // 触发props上的事件
+        // 向父组件派发事件
         this.$emit = function (key) {
             for (var _len = arguments.length, data = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
                 data[_key - 1] = arguments[_key];
@@ -1185,13 +1185,14 @@ var Component = function () {
             var parent = _this.parent;
             var stopBubble = false;
             while (!stopBubble && parent) {
-                var fn = parent.emit[key] || parent[key];
+                var fn = parent[key];
                 if (isFunction(fn)) {
                     stopBubble = fn.call.apply(fn, [parent].concat(data)) === false;
                 }
                 parent = parent.parent;
             }
         };
+        // 向子组件派发事件
         this.$emitChildren = function (key) {
             for (var _len2 = arguments.length, data = Array(_len2 > 1 ? _len2 - 1 : 0), _key2 = 1; _key2 < _len2; _key2++) {
                 data[_key2 - 1] = arguments[_key2];
@@ -1199,13 +1200,14 @@ var Component = function () {
 
             function children(node) {
                 node.children.forEach(function (item) {
-                    var fn = item.emit[key] || item[key];
+                    var fn = item[key];
                     isFunction(fn) && fn.call.apply(fn, [item].concat(data));
                     children(item);
                 });
             }
             children(_this);
         };
+        // 向同级组件派发事件
         this.$emitSiblings = function (key) {
             for (var _len3 = arguments.length, data = Array(_len3 > 1 ? _len3 - 1 : 0), _key3 = 1; _key3 < _len3; _key3++) {
                 data[_key3 - 1] = arguments[_key3];
@@ -1213,12 +1215,11 @@ var Component = function () {
 
             _this.parent && _this.parent.children.forEach(function (item) {
                 if (item !== _this) {
-                    var fn = item.emit[key] || item[key];
+                    var fn = item[key];
                     isFunction(fn) && fn.call.apply(fn, [item].concat(data));
                 }
             });
         };
-        this.emit = {};
     }
 
     createClass(Component, [{
