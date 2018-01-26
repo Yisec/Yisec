@@ -1,5 +1,5 @@
 import { VirtualDOM, ASTNode } from "./d";
-import { FElement } from './util';
+import { YisecElement } from './util';
 /**
  * 添加元素
  */
@@ -11,7 +11,7 @@ export declare function addElement(appendFn: any, ast: ASTNode, ctxs: any[], par
  * @param {HTMLElement} element
  * @param {anray} ctxs
  */
-declare function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom?: VirtualDOM): {
+declare function transform(ast: ASTNode, element: YisecElement, ctxs: any[], parentVdom?: VirtualDOM): {
     children: (VirtualDOM | undefined)[];
 };
 export default transform;

@@ -1,75 +1,12 @@
-import Component from "./Component";
-import render from "./render";
-import register from "./register";
+import Component from "./../Component";
+import render from "./../render";
+import register from "./../register";
 
-/**
- * router.config({
- *  hash: true,
- *  root: document.body,
- *  cache: 4,
- *  onPageSwitch: (oldPage, newPage) => {
- *  },
- *  router: {
- *    '/xx/:id': component,
- *    '/xx/:bc': component,
- *  }
- * })
- *
- */
-
-export interface RouterConfig {
-    hash: boolean
-    root: HTMLElement
-    cache: number
-    onPageSwitch: ()=>void
-    routes: object
-}
-
-let Router = {
-    hash: false,
-    routes: {},
-    $root: document.body,
-    push(url) {
-        window.history.pushState({}, '', this.getFullPath(url))
-        this.handleUrlChange(url)
-    },
-    replace(url) {
-        window.history.replaceState({}, '', this.getFullPath(url))
-        this.handleUrlChange(url)
-    },
-    handleUrlChange(url) {
-        const a = document.createElement('a')
-        a.href = url
-        const path = a.pathname
-        const result = match(path, this.routes)
-        if (result) {
-            const { router, params, value } = result
-            const { component, props = {} } = value
-            render(component, { ...props, params }, this.$root)
-        }
-    },
-    getFullPath(url) {
-        return this.hash ? `${location.pathname}${location.search}#${url}` : url
-    },
-    getPathname() {
-        return (this.hash ? location.hash.slice(1) : location.pathname) || '/'
-    }
-}
-
-export default function router(config) {
-    Router = {
-        ...Router,
-        ...config,
-    }
-    window.addEventListener('popstate', () => {
-        Router.handleUrlChange(Router.getPathname())
-    })
-    Router.handleUrlChange(Router.getPathname())
-}
-
-register('Link', class Link extends Component{
+class Link extends Component{
     static defaultProps = {
-        href: ''
+        href: '',
+        style: '',
+        class: '',
     }
     click = (e) => {
         const { click, replace = false, redirect = false, href = '' } = this.props
@@ -86,12 +23,12 @@ register('Link', class Link extends Component{
     }
     render() {
         return (`
-            <a :data-href="href" @click="click" :class="props.class" :style="props.style">
+            <a :data-href={props.href} @click={click} :class={props.class} :style={props.style}>
                 <slot />
             </a>
         `)
     }
-})
+}
 
 // 路由匹配
 function match(url = '', obj = {}) {
@@ -166,4 +103,70 @@ function match(url = '', obj = {}) {
         }
     }
     return null
+}
+
+
+/**
+ * router.config({
+ *  hash: true,
+ *  root: document.body,
+ *  cache: 4,
+ *  onPageSwitch: (oldPage, newPage) => {
+ *  },
+ *  router: {
+ *    '/xx/:id': component,
+ *    '/xx/:bc': component,
+ *  }
+ * })
+ *
+ */
+export interface RouterConfig {
+    hash: boolean
+    root: HTMLElement
+    cache: number
+    onPageSwitch: ()=>void
+    routes: object
+}
+
+let Router = {
+    hash: false,
+    routes: {},
+    $root: document.body,
+    push(url) {
+        window.history.pushState({}, '', this.getFullPath(url))
+        this.handleUrlChange(url)
+    },
+    replace(url) {
+        window.history.replaceState({}, '', this.getFullPath(url))
+        this.handleUrlChange(url)
+    },
+    handleUrlChange(url) {
+        const a = document.createElement('a')
+        a.href = url
+        const path = a.pathname
+        const result = match(path, this.routes)
+        if (result) {
+            const { router, params, value } = result
+            const { component, props = {} } = value
+            render(component, { ...props, params }, this.$root)
+        }
+    },
+    getFullPath(url) {
+        return this.hash ? `${location.pathname}${location.search}#${url}` : url
+    },
+    getPathname() {
+        return (this.hash ? location.hash.slice(1) : location.pathname) || '/'
+    }
+}
+
+export default function router(config) {
+    register('Link', Link)
+    Router = {
+        ...Router,
+        ...config,
+    }
+    window.addEventListener('popstate', () => {
+        Router.handleUrlChange(Router.getPathname())
+    })
+    Router.handleUrlChange(Router.getPathname())
 }

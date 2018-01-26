@@ -7,3 +7,5 @@ export const DIRECTIVE_EXPR = 'ys:expr:'
 export const COMPONENT_DOM_HOOK = '__yisec_component_hook__'
 
 export const OBSERVE_ID = '__observeID__'
+
+export const HANDLE_CLASS_FN_NME = '__postClassNames__'

@@ -6,7 +6,7 @@ const BubbleEventList = [
     'click', 'dblclick',
     'touchstart', 'touchmove', 'touchend',
     'mousedown', 'mousemove', 'mouseup',
-    'keydown', 'keyup',
+    'keydown', 'keyup', 'hover',
 ]
 
 export default class YSEvents {

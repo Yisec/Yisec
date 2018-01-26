@@ -19,7 +19,7 @@ export declare function toClassNames(v: any): string;
 /**
  * 含有appendChild的方法的对象
  */
-export interface FElement {
+export interface YisecElement {
     appendChild: (child: Node) => Node;
 }
 export declare function ST(fn: () => void, time: number): void;

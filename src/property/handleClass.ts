@@ -1,34 +1,37 @@
 import { VirtualDOM } from "./../d";
 import { execExpr } from "./../execExpr";
-import { toClassNames } from "./../util";
-import { DIRECTIVE_EXPR } from "../config";
+import { toClassNames, getParentCtx } from "./../util";
+import { DIRECTIVE_EXPR, HANDLE_CLASS_FN_NME } from "../config";
 
-function updateClassName(element: HTMLElement, classNames) {
+// 通过插件处理classNames
+function handleClassNames(str, ctx) {
+    return ctx[HANDLE_CLASS_FN_NME] ? ctx[HANDLE_CLASS_FN_NME](str) : str;
+}
+
+// 更新dom上的className
+function updateClassName(element: HTMLElement, classNames, key, classes, ctx) {
+    classNames[key] = handleClassNames(classes, ctx)
     element.className = Object.keys(classNames)
         .map(key => classNames[key])
         .map(i => i || '').join(' ').trim()
 }
 
-export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
-    const { ast, dom: element } = vdom
-    if (type) {
-        type += '-'
-    }
+// 获取class属性
+export function getClassProperties(type) {
+    type += (type ? '-' : '')
 
-    const classProperties = [
+    return [
         `${DIRECTIVE_EXPR}${type}class`,
         `:${type}class`,
         `${type}class`,
     ]
-
-    return Object.keys(ast.props).some(key => classProperties.includes(key))
 }
 
-function handleModuleCss(classNames, moduleMap) {
-    return classNames.trim().split(/\s+/g).map(key => {
-        // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
-        return moduleMap[key] || key
-    }).join(' ')
+// 测试props上是否存在指定的属性
+export function testClass(vdom: VirtualDOM, type: string = '') :boolean {
+    const { ast, dom: element } = vdom
+    const classProperties = getClassProperties(type)
+    return Object.keys(ast.props).some(key => classProperties.includes(key))
 }
 
 // class
@@ -38,7 +41,7 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
     const { ast: node, dom: element } = vdom
     const value = node.props[key]
     const { classNames } = vdom
-    const { moduleCss } = ctxs[0]
+    const ctx = getParentCtx(ctxs)
 
     type += (type ? '-' : '')
 
@@ -49,24 +52,12 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
     if (key === `:${type}class` || key === `ys:expr:${type}class`) {
         vdom.exprs.push(
             execExpr(value, ctxs, (newValue, oldValue) => {
-                let classes = toClassNames(newValue)
-                if (moduleCss) {
-                    classes = handleModuleCss(classes, moduleCss)
-                }
-                classNames[key] = classes
-
-                updateClassName(element, classNames)
+                updateClassName(element, classNames, key, toClassNames(newValue), ctx)
             })
         )
         return true
     } else if (key === `${type}class`) {
-        let classes = value
-        if (moduleCss) {
-            classes = handleModuleCss(classes, moduleCss)
-        }
-        classNames[key] = classes
-
-        updateClassName(element, classNames)
+        updateClassName(element, classNames, key, value, ctx)
         return true
 
     }

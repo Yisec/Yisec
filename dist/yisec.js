@@ -129,7 +129,7 @@ function uuid() {
     var len = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 8;
 
     var S = '0123456789qwertyuioopasdfghjklzxcvbnmQWERTYUIOOPASDFGHJKLZXCVBNM';
-    var LEN = S.length;
+    var LEN = S.length - 1;
     return ' '.repeat(len).split('').map(function () {
         return S[Math.round(Math.random() * LEN)];
     }).join('');
@@ -178,7 +178,7 @@ function isComponent(component, ast) {
     if (isPromise(component) || isFunction(component) || isString(component)) {
         return true;
     }
-    console.error(component, ast.tagName + " should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Fv.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6");
+    console.error(component, ast.tagName + " should be a Component!!! \u60A8\u53EF\u4EE5\u5728\u7EC4\u4EF6\u7684Components\u5C5E\u6027\u4E2D\u6DFB\u52A0\u5B50\u7EC4\u4EF6\uFF0C\u6216\u8005\u901A\u8FC7Yisec.register\u6CE8\u518C\u5168\u5C40\u7EC4\u4EF6");
     return false;
 }
 
@@ -203,7 +203,7 @@ function on(element, key, fn) {
                     _element = _cache$i.element,
                     _fn2 = _cache$i.fn;
 
-                if (_element === target || _element.contains(target)) {
+                if (_element === target || target instanceof Node && _element.contains(target)) {
                     _fn2.call(_element, event);
                     if (isStop) {
                         isStop = false;
@@ -385,7 +385,7 @@ var toConsumableArray = function (arr) {
   }
 };
 
-var BubbleEventList = ['click', 'dblclick', 'touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup', 'keydown', 'keyup'];
+var BubbleEventList = ['click', 'dblclick', 'touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup', 'keydown', 'keyup', 'hover'];
 
 var YSEvents = function () {
     function YSEvents() {
@@ -482,6 +482,7 @@ var DIRECTIVE_EXPR = 'ys:expr:';
 // 组件挂载到dom上的key
 var COMPONENT_DOM_HOOK = '__yisec_component_hook__';
 var OBSERVE_ID = '__observeID__';
+var HANDLE_CLASS_FN_NME = '__postClassNames__';
 
 var Observe = function Observe() {
     classCallCheck(this, Observe);
@@ -923,31 +924,33 @@ function execExprOnce(expr, ctxs) {
     return returnValue;
 }
 
-function updateClassName(element, classNames) {
+function handleClassNames(str, ctx) {
+    return ctx[HANDLE_CLASS_FN_NME] ? ctx[HANDLE_CLASS_FN_NME](str) : str;
+}
+// 更新dom上的className
+function updateClassName(element, classNames, key, classes, ctx) {
+    classNames[key] = handleClassNames(classes, ctx);
     element.className = Object.keys(classNames).map(function (key) {
         return classNames[key];
     }).map(function (i) {
         return i || '';
     }).join(' ').trim();
 }
+// 获取class属性
+function getClassProperties(type) {
+    type += type ? '-' : '';
+    return ["" + DIRECTIVE_EXPR + type + "class", ":" + type + "class", type + "class"];
+}
+// 测试props上是否存在指定的属性
 function testClass(vdom) {
     var type = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
     var ast = vdom.ast,
         element = vdom.dom;
 
-    if (type) {
-        type += '-';
-    }
-    var classProperties = ["" + DIRECTIVE_EXPR + type + "class", ":" + type + "class", type + "class"];
+    var classProperties = getClassProperties(type);
     return Object.keys(ast.props).some(function (key) {
         return classProperties.includes(key);
     });
-}
-function handleModuleCss(classNames, moduleMap) {
-    return classNames.trim().split(/\s+/g).map(function (key) {
-        // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
-        return moduleMap[key] || key;
-    }).join(' ');
 }
 // class
 // enter-class
@@ -959,40 +962,41 @@ function handleClass(vdom, ctxs, key) {
 
     var value = node.props[key];
     var classNames = vdom.classNames;
-    var moduleCss = ctxs[0].moduleCss;
 
+    var ctx = getParentCtx(ctxs);
     type += type ? '-' : '';
     if (!(element instanceof HTMLElement)) {
         return true;
     }
     if (key === ":" + type + "class" || key === "ys:expr:" + type + "class") {
         vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
-            var classes = toClassNames(newValue);
-            if (moduleCss) {
-                classes = handleModuleCss(classes, moduleCss);
-            }
-            classNames[key] = classes;
-            updateClassName(element, classNames);
+            updateClassName(element, classNames, key, toClassNames(newValue), ctx);
         }));
         return true;
     } else if (key === type + "class") {
-        var classes = value;
-        if (moduleCss) {
-            classes = handleModuleCss(classes, moduleCss);
-        }
-        classNames[key] = classes;
-        updateClassName(element, classNames);
+        updateClassName(element, classNames, key, value, ctx);
         return true;
     }
     return false;
 }
 
+function handleEnter(vdom) {
+    if (vdom.dom && testClass(vdom, 'enter')) {
+        getClassProperties('enter').forEach(function (key) {
+            handleClass(vdom, vdom.ctxs, key, 'enter');
+        });
+    }
+}
+/**
+ * 判断dom是否可以异步卸载
+ * @param vdom
+ */
 function handleLeave(vdom) {
     var leaveTime = vdom.ast.props.leaveTime;
 
     if (vdom.dom && leaveTime && testClass(vdom, 'leave')) {
         // vdom.dom.className += ` ${leaveClass}`
-        Object.keys(vdom.ast.props).forEach(function (key) {
+        getClassProperties('leave').forEach(function (key) {
             handleClass(vdom, vdom.ctxs, key, 'leave');
         });
         return new Promise(function (res) {
@@ -1000,17 +1004,6 @@ function handleLeave(vdom) {
         });
     }
     return true;
-}
-/**
- * dom加载成功后，同步做某些事情
- * @param vdom
- */
-function handleEnter(vdom) {
-    if (vdom.dom && testClass(vdom, 'enter')) {
-        Object.keys(vdom.ast.props).forEach(function (key) {
-            handleClass(vdom, vdom.ctxs, key, 'enter');
-        });
-    }
 }
 
 var VirtualDOM = function () {
@@ -2052,13 +2045,16 @@ function handleKeyChange(vdom) {
 function handleDangerousHTML(vdom) {
     var ctxs = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
     var key = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+    var dom = vdom.dom;
 
-    if (key === 'dangerousHTML') {
-        vdom.dom.innerHTML = vdom.ast.props[key];
-    } else if (key === ':dangerousHTML') {
-        execExpr(vdom.ast.props[key], ctxs, function (newValue, oldValue) {
-            vdom.dom.innerHTML = newValue;
-        });
+    if (dom instanceof HTMLElement) {
+        if (key === 'dangerousHTML') {
+            dom.innerHTML = vdom.ast.props[key];
+        } else if (key === ':dangerousHTML') {
+            execExpr(vdom.ast.props[key], ctxs, function (newValue, oldValue) {
+                dom.innerHTML = newValue;
+            });
+        }
     }
     return false;
 }
@@ -2401,49 +2397,7 @@ function render(Com, props, dom, vdom) {
     return ctx;
 }
 
-var Router = {
-    hash: false,
-    routes: {},
-    $root: document.body,
-    push: function push(url) {
-        window.history.pushState({}, '', this.getFullPath(url));
-        this.handleUrlChange(url);
-    },
-    replace: function replace(url) {
-        window.history.replaceState({}, '', this.getFullPath(url));
-        this.handleUrlChange(url);
-    },
-    handleUrlChange: function handleUrlChange(url) {
-        var a = document.createElement('a');
-        a.href = url;
-        var path = a.pathname;
-        var result = match(path, this.routes);
-        if (result) {
-            var _router = result.router,
-                params = result.params,
-                value = result.value;
-            var component = value.component,
-                _value$props = value.props,
-                props = _value$props === undefined ? {} : _value$props;
-
-            render(component, Object.assign({}, props, { params: params }), this.$root);
-        }
-    },
-    getFullPath: function getFullPath(url) {
-        return this.hash ? "" + location.pathname + location.search + "#" + url : url;
-    },
-    getPathname: function getPathname() {
-        return (this.hash ? location.hash.slice(1) : location.pathname) || '/';
-    }
-};
-function router(config) {
-    Router = Object.assign({}, Router, config);
-    window.addEventListener('popstate', function () {
-        Router.handleUrlChange(Router.getPathname());
-    });
-    Router.handleUrlChange(Router.getPathname());
-}
-register('Link', (_a = function (_Component) {
+var Link = function (_Component) {
     inherits(Link, _Component);
 
     function Link() {
@@ -2477,13 +2431,17 @@ register('Link', (_a = function (_Component) {
     createClass(Link, [{
         key: "render",
         value: function render$$1() {
-            return "\n            <a :data-href=\"href\" @click=\"click\" :class=\"props.class\" :style=\"props.style\">\n                <slot />\n            </a>\n        ";
+            return "\n            <a :data-href={props.href} @click={click} :class={props.class} :style={props.style}>\n                <slot />\n            </a>\n        ";
         }
     }]);
     return Link;
-}(Component), _a.defaultProps = {
-    href: ''
-}, _a));
+}(Component);
+
+Link.defaultProps = {
+    href: '',
+    style: '',
+    class: ''
+};
 // 路由匹配
 function match() {
     var url = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
@@ -2552,40 +2510,96 @@ function match() {
     }
     return null;
 }
-var _a;
+var Router = {
+    hash: false,
+    routes: {},
+    $root: document.body,
+    push: function push(url) {
+        window.history.pushState({}, '', this.getFullPath(url));
+        this.handleUrlChange(url);
+    },
+    replace: function replace(url) {
+        window.history.replaceState({}, '', this.getFullPath(url));
+        this.handleUrlChange(url);
+    },
+    handleUrlChange: function handleUrlChange(url) {
+        var a = document.createElement('a');
+        a.href = url;
+        var path = a.pathname;
+        var result = match(path, this.routes);
+        if (result) {
+            var _router = result.router,
+                params = result.params,
+                value = result.value;
+            var component = value.component,
+                _value$props = value.props,
+                props = _value$props === undefined ? {} : _value$props;
+
+            render(component, Object.assign({}, props, { params: params }), this.$root);
+        }
+    },
+    getFullPath: function getFullPath(url) {
+        return this.hash ? "" + location.pathname + location.search + "#" + url : url;
+    },
+    getPathname: function getPathname() {
+        return (this.hash ? location.hash.slice(1) : location.pathname) || '/';
+    }
+};
+function router(config) {
+    register('Link', Link);
+    Router = Object.assign({}, Router, config);
+    window.addEventListener('popstate', function () {
+        Router.handleUrlChange(Router.getPathname());
+    });
+    Router.handleUrlChange(Router.getPathname());
+}
+
+function cssModule(styles) {
+    return function (target) {
+        target.prototype[HANDLE_CLASS_FN_NME] = function () {
+            var classNames = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
+
+            return classNames.trim().split(/\s+/g).map(function (key) {
+                // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
+                return styles[key] || key;
+            }).join(' ');
+        };
+    };
+}
 
 var index = {
-    Component: Component,
-    render: render,
-    autorun: autorun,
     observer: observer,
     isObserve: isObserve,
     addObserve: addObserve,
     observerDeep: observerDeep,
+    autorun: autorun,
+    Component: Component,
+    render: render,
     register: register,
-    addEventAlias: addEventAlias,
     registerComponents: registerComponents,
+    addEventAlias: addEventAlias,
     addPipe: addPipe,
     forceUpdate: forceUpdate,
-    addUpdateQueue: addUpdateQueue,
-    router: router
+    // plugins
+    router: router,
+    cssModule: cssModule
 };
 
 exports['default'] = index;
-exports.Component = Component;
-exports.render = render;
-exports.autorun = autorun;
 exports.observer = observer;
 exports.isObserve = isObserve;
 exports.addObserve = addObserve;
 exports.observerDeep = observerDeep;
+exports.autorun = autorun;
+exports.Component = Component;
+exports.render = render;
 exports.register = register;
-exports.addEventAlias = addEventAlias;
 exports.registerComponents = registerComponents;
+exports.addEventAlias = addEventAlias;
 exports.addPipe = addPipe;
 exports.forceUpdate = forceUpdate;
-exports.addUpdateQueue = addUpdateQueue;
 exports.router = router;
+exports.cssModule = cssModule;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

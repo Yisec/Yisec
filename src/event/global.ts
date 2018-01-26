@@ -25,7 +25,10 @@ export function on(element: HTMLElement, key:string, fn) {
 
             for (let i = 0; i < cache.length; i++) {
                 const { element, fn } = cache[i]
-                if (element === target || element.contains(target)) {
+                if (
+                    element === target
+                    || ((target instanceof Node) && element.contains(target))
+                ) {
                     fn.call(element, event)
                     if (isStop) { // 如果阻止冒泡，就跳出循环
                         isStop = false

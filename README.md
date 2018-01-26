@@ -204,9 +204,13 @@ addPipe({
 
 ## class
 ```js
-import moduleCss from './index.scss'
+import { Component, cssModule } from 'yisec'
+import style from './index.scss'
+
+// 使用cssModule装饰器，增加对css module的支持
+// style中不存在的key，使用的key作为class
+@cssModule(style)
 class extends Component {
-    moduleCss = moduleCss
     render() {
         return (`
             <div class="aa" :class={[name]}
@@ -217,8 +221,8 @@ class extends Component {
     }
 }
 ```
-class表示正常的class属性，对于@class支持object/arr/string三种数据类型的转换
-component上添加moduleCss属性，即可增加对moduleCss的支持
+class表示正常的class属性，对于:class支持object/arr/string三种数据类型的转换
+
 
 ### 生命周期
 - class dom被创建时执行

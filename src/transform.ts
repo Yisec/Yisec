@@ -2,7 +2,7 @@ import { EventAlias, VirtualDOM, ASTNode, Props } from "./d";
 import {
     toClassNames,
     getType,
-    FElement,
+    YisecElement,
     isPromise,
     isObject,
     getComponent,
@@ -18,7 +18,7 @@ import { autorun, observer, addObserve } from './autorun'
 import { execExpr } from "./execExpr";
 import render from './render'
 
-import eventAlias from "./eventAlias";
+import eventAlias from "./event/alias";
 import Component from "./Component";
 import { unmountChildren, unmountNode } from "./unmount"
 import handleClass from "./property/handleClass";
@@ -41,12 +41,15 @@ function handleKeyChange(vdom: VirtualDOM) {
 
 // 处理innerHTML
 function handleDangerousHTML(vdom: VirtualDOM, ctxs:any[] = [], key = '') :boolean {
-    if (key === 'dangerousHTML') {
-        vdom.dom.innerHTML = vdom.ast.props[key]
-    } else if (key === ':dangerousHTML') {
-        execExpr(vdom.ast.props[key], ctxs, (newValue, oldValue) => {
-            vdom.dom.innerHTML = newValue
-        })
+    const { dom } = vdom;
+    if (dom instanceof HTMLElement) {
+        if (key === 'dangerousHTML') {
+            dom.innerHTML = vdom.ast.props[key]
+        } else if (key === ':dangerousHTML') {
+            execExpr(vdom.ast.props[key], ctxs, (newValue, oldValue) => {
+                dom.innerHTML = newValue
+            })
+        }
     }
     return false
 }
@@ -307,7 +310,7 @@ export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: Virt
  * @param {HTMLElement} element
  * @param {anray} ctxs
  */
-function transform(ast: ASTNode, element: FElement, ctxs: any[], parentVdom: VirtualDOM = new VirtualDOM() ) {
+function transform(ast: ASTNode, element: YisecElement, ctxs: any[], parentVdom: VirtualDOM = new VirtualDOM() ) {
     const vdoms = ast.children.map(node => {
         if (node.type === 'element' || node.type === 'component') {
             // 处理ys:if指令

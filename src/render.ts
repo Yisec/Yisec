@@ -2,7 +2,7 @@ import Component from './Component'
 import toAST from './parser/parseTemplate'
 import transform from './transform'
 import { observer, addObserve, autorun, isObserve } from './autorun'
-import { FElement, merge, isFunction, isString } from "./util";
+import { YisecElement, merge, isFunction, isString } from "./util";
 import { VirtualDOM } from './d';
 import { COMPONENT_DOM_HOOK } from './config';
 
@@ -12,7 +12,7 @@ import { COMPONENT_DOM_HOOK } from './config';
  * @param {HTMLElement} dom
  * @returns {Component}
  */
-export default function render(Com: any, props: any, dom: FElement, vdom?:VirtualDOM) :Component {
+export default function render(Com: any, props: any, dom: YisecElement, vdom?:VirtualDOM) :Component {
     // 卸载原有dom上挂载的component
     if (
         dom instanceof HTMLElement

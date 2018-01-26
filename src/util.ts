@@ -60,7 +60,7 @@ export function toClassNames(v: any): string {
 /**
  * 含有appendChild的方法的对象
  */
-export interface FElement {
+export interface YisecElement {
     appendChild: (child: Node) => Node
 }
 
@@ -110,7 +110,7 @@ export function bindContext(fn: any, ctx: object) :any {
 
 export function uuid(len = 8):string {
     const S = '0123456789qwertyuioopasdfghjklzxcvbnmQWERTYUIOOPASDFGHJKLZXCVBNM'
-    const LEN = S.length
+    const LEN = S.length - 1
     return ' '.repeat(len).split('').map(() => S[Math.round(Math.random() * LEN)]).join('')
 }
 
@@ -153,6 +153,6 @@ export function isComponent(component, ast: ASTNode) {
     if (isPromise(component) || isFunction(component) || isString(component))  {
         return true
     }
-    console.error(component, `${ast.tagName} should be a Component!!! 您可以在组件的Components属性中添加子组件，或者通过Fv.register注册全局组件`)
+    console.error(component, `${ast.tagName} should be a Component!!! 您可以在组件的Components属性中添加子组件，或者通过Yisec.register注册全局组件`)
     return false
 }

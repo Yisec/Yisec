@@ -2,43 +2,48 @@ import Component from './Component'
 import render from './render'
 import { autorun, observer, Depends, isObserve, addObserve, ObserveOptions, observerDeep, AutorunOption } from './autorun'
 import register, { registerComponents } from "./register";
-import { addEventAlias } from "./eventAlias";
+import { addEventAlias } from "./event/alias";
 import { addPipe } from "./execExpr";
 import forceUpdate, {addUpdateQueue} from "./forceUpdate";
 import { VirtualDOM } from "./d";
-import { FElement } from "./util";
-import router, {RouterConfig} from './router';
+import { YisecElement } from "./util";
+import router, { RouterConfig } from './plugins/router';
+import cssModule from './plugins/cssModule'
 
 export default {
-    Component,
-    render,
-    autorun,
     observer,
     isObserve,
     addObserve,
     observerDeep,
+    autorun,
+
+    Component,
+    render,
     register,
-    addEventAlias,
     registerComponents,
+    addEventAlias,
     addPipe,
     forceUpdate,
-    addUpdateQueue,
+    // plugins
     router,
+    cssModule,
 }
 
 export {
-    Component,
-    render,
-    autorun,
     observer,
     isObserve,
     addObserve,
     observerDeep,
+    autorun,
+
+    Component,
+    render,
     register,
-    addEventAlias,
     registerComponents,
+    addEventAlias,
     addPipe,
     forceUpdate,
-    addUpdateQueue,
+    // plugins
     router,
+    cssModule,
 }
