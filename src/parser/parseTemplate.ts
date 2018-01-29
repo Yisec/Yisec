@@ -202,13 +202,26 @@ export function getToken(str: string = '') :TokenElement[] {
  * @param {any} template
  * @param {any} message
  */
-function handleASTError(token, template, message) {
+function handleASTError(token: TokenElement, template = '', message = '') {
     const str = template.slice(0, token.index)
-    const enter = str.match(/\n/g)
+    const enter = str.match(/\n/g) || []
     const row = enter ? enter.length + 1 : 1
-    const column = str.length - str.lastIndexOf('\n')
+    const column = str.length - Math.max(str.lastIndexOf('\n'), 0)
 
-    console.error(`at row:${row} column:${column} \n\n${template.slice(token.index, token.index + 100)} \n\n${message}`)
+    const insertStr = ' '.repeat(column - 1) + '^'
+
+    // 比如我可能只显示5+5的位置
+    const arr = template.split(/\n/g)
+    const P = Math.max(row - 5, 0)
+    const startArr = arr.slice(P, row)
+    const endArr = arr.slice(row, P + 5)
+    const S = [
+        ...startArr,
+        insertStr,
+        ...endArr,
+    ].join('\n')
+
+    console.error(`at row:${row} column:${column} \n\n${S} \n\n${message}`)
 }
 
 // 读取元素
@@ -228,8 +241,8 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
     let currentT: TokenElement
     const LEN = token.length
 
-    function getT(index) {
-        return token[index] || {}
+    function getT(index) :TokenElement {
+        return token[index]
     }
 
     next()
@@ -288,10 +301,16 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
             && getT(index + 2).type == 'TAG_CLOSE'
         ) {
             if (currentNode.tagName !== getT(index + 1).value) {
+                const closeTagName = getT(index + 1).value
+                let errMsg = `close tag name should be ${currentNode.tagName}, but now is ${closeTagName}`
+                if (!currentNode.tagName) {
+                    errMsg = `close tag name is ${closeTagName}, but the open tag name is empty!!!`
+                }
+
                 handleASTError(
                     getT(index + 1),
                     template,
-                    `close tag name should be ${currentNode.tagName}, but now is ${getT(index + 1).value}`
+                    errMsg,
                 )
             }
             currentNode = currentNode.parent
@@ -335,6 +354,7 @@ function handleSVG(node: ASTNode, isSVG = false) {
     return node
 }
 
+// 处理if else
 function handleIfElse(node: ASTNode) {
     let prevCondition = ''
     node.children.forEach(child => {

@@ -924,17 +924,24 @@ function execExprOnce(expr, ctxs) {
     return returnValue;
 }
 
+// 通过插件处理classNames
 function handleClassNames(str, ctx) {
     return ctx[HANDLE_CLASS_FN_NME] ? ctx[HANDLE_CLASS_FN_NME](str) : str;
 }
 // 更新dom上的className
 function updateClassName(element, classNames, key, classes, ctx) {
     classNames[key] = handleClassNames(classes, ctx);
-    element.className = Object.keys(classNames).map(function (key) {
+    var classStr = Object.keys(classNames).map(function (key) {
         return classNames[key];
     }).map(function (i) {
         return i || '';
     }).join(' ').trim();
+    if (element instanceof HTMLElement) {
+        element.className = classStr;
+    } else if (element instanceof SVGElement) {
+        // SVGElement 的className属性为read only，因此这里使用setAttribute
+        element.setAttribute('class', classStr);
+    }
 }
 // 获取class属性
 function getClassProperties(type) {
@@ -965,9 +972,6 @@ function handleClass(vdom, ctxs, key) {
 
     var ctx = getParentCtx(ctxs);
     type += type ? '-' : '';
-    if (!(element instanceof HTMLElement)) {
-        return true;
-    }
     if (key === ":" + type + "class" || key === "ys:expr:" + type + "class") {
         vdom.exprs.push(execExpr(value, ctxs, function (newValue, oldValue) {
             updateClassName(element, classNames, key, toClassNames(newValue), ctx);
@@ -1519,12 +1523,22 @@ function getToken() {
  * @param {any} template
  * @param {any} message
  */
-function handleASTError(token, template, message) {
+function handleASTError(token) {
+    var template = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+    var message = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
+
     var str = template.slice(0, token.index);
-    var enter = str.match(/\n/g);
+    var enter = str.match(/\n/g) || [];
     var row = enter ? enter.length + 1 : 1;
-    var column = str.length - str.lastIndexOf('\n');
-    console.error("at row:" + row + " column:" + column + " \n\n" + template.slice(token.index, token.index + 100) + " \n\n" + message);
+    var column = str.length - Math.max(str.lastIndexOf('\n'), 0);
+    var insertStr = ' '.repeat(column - 1) + '^';
+    // 比如我可能只显示5+5的位置
+    var arr = template.split(/\n/g);
+    var P = Math.max(row - 5, 0);
+    var startArr = arr.slice(P, row);
+    var endArr = arr.slice(row, P + 5);
+    var S = [].concat(toConsumableArray(startArr), [insertStr], toConsumableArray(endArr)).join('\n');
+    console.error("at row:" + row + " column:" + column + " \n\n" + S + " \n\n" + message);
 }
 // 读取元素
 // token[0].type == 'OPEN_START'
@@ -1546,7 +1560,7 @@ function toAST() {
     var currentT = void 0;
     var LEN = token.length;
     function getT(index) {
-        return token[index] || {};
+        return token[index];
     }
     next();
     function next() {
@@ -1591,7 +1605,12 @@ function toAST() {
             index = localIndex + 1;
         } else if (currentT.type == 'CLOSE_START' && getT(index + 1).type == 'TAG_NAME' && getT(index + 2).type == 'TAG_CLOSE') {
             if (currentNode.tagName !== getT(index + 1).value) {
-                handleASTError(getT(index + 1), template, "close tag name should be " + currentNode.tagName + ", but now is " + getT(index + 1).value);
+                var closeTagName = getT(index + 1).value;
+                var errMsg = "close tag name should be " + currentNode.tagName + ", but now is " + closeTagName;
+                if (!currentNode.tagName) {
+                    errMsg = "close tag name is " + closeTagName + ", but the open tag name is empty!!!";
+                }
+                handleASTError(getT(index + 1), template, errMsg);
             }
             currentNode = currentNode.parent;
             index += 3;
@@ -1631,6 +1650,7 @@ function handleSVG(node) {
     });
     return node;
 }
+// 处理if else
 var cache$1 = {};
 // 字符串 => ast
 var toAST$1 = function () {

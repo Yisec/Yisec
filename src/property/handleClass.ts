@@ -9,11 +9,18 @@ function handleClassNames(str, ctx) {
 }
 
 // 更新dom上的className
-function updateClassName(element: HTMLElement, classNames, key, classes, ctx) {
+function updateClassName(element: HTMLElement|SVGElement, classNames, key, classes, ctx) {
     classNames[key] = handleClassNames(classes, ctx)
-    element.className = Object.keys(classNames)
+    const classStr = Object.keys(classNames)
         .map(key => classNames[key])
         .map(i => i || '').join(' ').trim()
+
+    if (element instanceof HTMLElement) {
+        element.className = classStr
+    } else if (element instanceof SVGElement) {
+        // SVGElement 的className属性为read only，因此这里使用setAttribute
+        element.setAttribute('class', classStr)
+    }
 }
 
 // 获取class属性
@@ -44,10 +51,6 @@ export default function handleClass( vdom: VirtualDOM, ctxs: any[], key: string,
     const ctx = getParentCtx(ctxs)
 
     type += (type ? '-' : '')
-
-    if (!(element instanceof HTMLElement)) {
-        return true
-    }
 
     if (key === `:${type}class` || key === `ys:expr:${type}class`) {
         vdom.exprs.push(
