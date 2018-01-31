@@ -262,6 +262,7 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
             let localIndex = index + 2
             const props = {}
             const tagName = getT(index + 1).value
+
             while (getT(localIndex).type == 'TAG_NAME' || getT(localIndex).type == 'PROPERTY_NAME') {
                 if ( getT(localIndex + 1).type == 'EQ' ) {
                     if ( ['PROPERTY_VALUE', 'EXPR'].includes(getT(localIndex + 2).type) ) {
@@ -275,7 +276,7 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
                         localIndex += 3
                         continue
                     }  else {
-                        handleASTError(getT(localIndex), template, `${getT(localIndex).value} should have a value`)
+                        handleASTError(getT(localIndex), template, `${getT(localIndex).value} should have a value "sth" | {expr}`)
                     }
                 }
                 props[getT(localIndex).value] = true
@@ -291,15 +292,27 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
                 if (TAG_TYPE === 'TAG_CLOSE' && !selfCloseElements.includes(tagName)) {
                     currentNode = node
                 }
+                index = localIndex + 1
+                return next()
+            } else {
+                // 对于以 < tagName 开头的字符串，以tagStart模式来解析
+                handleASTError(
+                    getT(localIndex),
+                    template,
+                    'parse error!!!!! property is not legal or there doesnt have a close tag',
+                )
+                throw new Error('parse error!!!!!')
             }
-            index = localIndex + 1
+            // 11111 dddd
         }
+
         // close tag
-        else if (
+        if (
             currentT.type == 'CLOSE_START'
             && getT(index + 1).type == 'TAG_NAME'
             && getT(index + 2).type == 'TAG_CLOSE'
         ) {
+            // 与当前node.tagName进行比对
             if (currentNode.tagName !== getT(index + 1).value) {
                 const closeTagName = getT(index + 1).value
                 let errMsg = `close tag name should be ${currentNode.tagName}, but now is ${closeTagName}`
@@ -315,30 +328,31 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
             }
             currentNode = currentNode.parent
             index += 3
+            return next()
         }
-        // 文本节点
-        else {
-            const last = currentNode.children[currentNode.children.length - 1]
 
-            if (currentT.type == 'EXPR') {
-                const node = new ASTNode()
-                node.value = currentT.value
-                node.type = 'expr'
-                node.parent = currentNode
-                currentNode.children.push(node)
-            }
-            // 如果前面是文本节点，就追加上去
-            else if (last && last.type === 'text') {
-                last.value += currentT.value
-            } else {
-                const node = new ASTNode()
-                node.type = 'text'
-                node.value = currentT.origin || currentT.value || ''
-                node.parent = currentNode
-                currentNode.children.push(node)
-            }
-            index++
+        // 文本节点
+        const last = currentNode.children[currentNode.children.length - 1]
+
+        if (currentT.type == 'EXPR') {
+            const node = new ASTNode()
+            node.value = currentT.value
+            node.type = 'expr'
+            node.parent = currentNode
+            currentNode.children.push(node)
         }
+        // 如果前面是文本节点，就追加上去
+        else if (last && last.type === 'text') {
+            last.value += currentT.value
+        } else {
+            const node = new ASTNode()
+            node.type = 'text'
+            node.value = currentT.origin || currentT.value || ''
+            node.parent = currentNode
+            currentNode.children.push(node)
+        }
+        index++
+
         next()
     }
     return root

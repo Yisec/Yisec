@@ -1,6 +1,6 @@
 {
   "name": "yisec",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Yisec is a web component framework",
   "main": "./dist/yisec.js",
   "typings": "./lib/index.d.ts",
@@ -10,7 +10,7 @@
     "rollup": "rollup -c --watch",
     "static": "lyss --port=8900",
     "tsc": "tsc --watch --pretty",
-    "ln": "ln -s /Users/wangyong/me/Yisec /Users/wangyong/me/space/client/node_modules"
+    "ln": "ln -s /Users/wangyong/me/Yisec /Users/wangyong/me/YisecDemo/node_modules"
   },
   "author": "",
   "license": "ISC",

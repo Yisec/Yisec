@@ -924,7 +924,6 @@ function execExprOnce(expr, ctxs) {
     return returnValue;
 }
 
-// 通过插件处理classNames
 function handleClassNames(str, ctx) {
     return ctx[HANDLE_CLASS_FN_NME] ? ctx[HANDLE_CLASS_FN_NME](str) : str;
 }
@@ -1317,6 +1316,9 @@ function getMatched() {
 // 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层
 // 自身的逻辑层可以作为控制器
 // 再加一个Model作为数据来源
+/**
+ * 半闭合标签 可以以 > 或 /> 结尾
+ */
 var selfCloseElements = ['img', 'br', 'hr', 'input'];
 // 我们应该在解析关键字的同时，保留原始字符串
 var M = {
@@ -1586,7 +1588,7 @@ function toAST() {
                         localIndex += 3;
                         continue;
                     } else {
-                        handleASTError(getT(localIndex), template, getT(localIndex).value + " should have a value");
+                        handleASTError(getT(localIndex), template, getT(localIndex).value + " should have a value \"sth\" | {expr}");
                     }
                 }
                 props[getT(localIndex).value] = true;
@@ -1601,9 +1603,18 @@ function toAST() {
                 if (TAG_TYPE === 'TAG_CLOSE' && !selfCloseElements.includes(tagName)) {
                     currentNode = node;
                 }
+                index = localIndex + 1;
+                return next();
+            } else {
+                // 对于以 < tagName 开头的字符串，以tagStart模式来解析
+                handleASTError(getT(localIndex), template, 'parse error!!!!! property is not legal or there doesnt have a close tag');
+                throw new Error('parse error!!!!!');
             }
-            index = localIndex + 1;
-        } else if (currentT.type == 'CLOSE_START' && getT(index + 1).type == 'TAG_NAME' && getT(index + 2).type == 'TAG_CLOSE') {
+            // 11111 dddd
+        }
+        // close tag
+        if (currentT.type == 'CLOSE_START' && getT(index + 1).type == 'TAG_NAME' && getT(index + 2).type == 'TAG_CLOSE') {
+            // 与当前node.tagName进行比对
             if (currentNode.tagName !== getT(index + 1).value) {
                 var closeTagName = getT(index + 1).value;
                 var errMsg = "close tag name should be " + currentNode.tagName + ", but now is " + closeTagName;
@@ -1614,25 +1625,26 @@ function toAST() {
             }
             currentNode = currentNode.parent;
             index += 3;
-        } else {
-            var last = currentNode.children[currentNode.children.length - 1];
-            if (currentT.type == 'EXPR') {
-                var _node = new ASTNode();
-                _node.value = currentT.value;
-                _node.type = 'expr';
-                _node.parent = currentNode;
-                currentNode.children.push(_node);
-            } else if (last && last.type === 'text') {
-                last.value += currentT.value;
-            } else {
-                var _node2 = new ASTNode();
-                _node2.type = 'text';
-                _node2.value = currentT.origin || currentT.value || '';
-                _node2.parent = currentNode;
-                currentNode.children.push(_node2);
-            }
-            index++;
+            return next();
         }
+        // 文本节点
+        var last = currentNode.children[currentNode.children.length - 1];
+        if (currentT.type == 'EXPR') {
+            var _node = new ASTNode();
+            _node.value = currentT.value;
+            _node.type = 'expr';
+            _node.parent = currentNode;
+            currentNode.children.push(_node);
+        } else if (last && last.type === 'text') {
+            last.value += currentT.value;
+        } else {
+            var _node2 = new ASTNode();
+            _node2.type = 'text';
+            _node2.value = currentT.origin || currentT.value || '';
+            _node2.parent = currentNode;
+            currentNode.children.push(_node2);
+        }
+        index++;
         next();
     }
     return root;
@@ -1650,7 +1662,6 @@ function handleSVG(node) {
     });
     return node;
 }
-// 处理if else
 var cache$1 = {};
 // 字符串 => ast
 var toAST$1 = function () {
