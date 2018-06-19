@@ -6,9 +6,10 @@
         "module": "es6", // specifiy module code generation
         "target": "es6", // specify ECMAScript target version
         // "allowJs": true, // allow a partial TypeScript and JavaScript codebase  
-        "declaration": true,
+        "declaration": true, // 自动生成type定义
         "moduleResolution": "node",
-        "experimentalDecorators":true,
+        "experimentalDecorators":true, // 可以使用装饰器
+        // 指定es版本，以及dom等
         "lib": [
             "es2017",
             "dom",

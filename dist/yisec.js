@@ -1323,39 +1323,39 @@ var selfCloseElements = ['img', 'br', 'hr', 'input'];
 // 我们应该在解析关键字的同时，保留原始字符串
 var M = {
     get SELF_CLOSE() {
-        return (/^(\/\s*>)\s*/
+        return (/^\s*(\/\s*>)/
         );
     },
     get CLOSE_START() {
-        return (/^(<\s*\/)\s*/
+        return (/^(<\s*\/)/
         );
     },
     get TAG_CLOSE() {
-        return (/^(>)\s*/
+        return (/^\s*(>)/
         );
     },
     get OPEN_START() {
-        return (/^(<)\s*/
+        return (/^(<)/
         );
     },
     get EQ() {
-        return (/^(=)\s*/
+        return (/^\s*(=)/
         );
     },
     get TAG_NAME() {
-        return (/^([a-zA-Z]-?([a-zA-Z0-9]-?)*)\s*/
+        return (/^\s*([a-zA-Z]-?([a-zA-Z0-9]-?)*)/
         ); // Ass-dd-09
     },
     get PROPERTY_NAME() {
-        return (/^([a-zA-Z@:]-?([a-zA-Z0-9:]-?)*)\s*/
+        return (/^\s*([a-zA-Z@:]-?([a-zA-Z0-9:]-?)*)/
         ); // @:-aaaa
     },
     get PROPERTY_VALUE() {
-        return (/^"([^"]*)"\s*/
+        return (/^\s*"([^"]*)"/
         ); // 支持 "xxx" {xc}
     },
     get EXPR() {
-        return (/^{{2}(((?!}{2}).)*)\}{2}\s*/
+        return (/^{{2}(((?!}{2}).)*)\}{2}/
         );
     },
     get STRING() {
@@ -1377,19 +1377,11 @@ function getToken() {
     var index = 0;
     // closeStart
     // 获取token，并记解析位置
-    function removePreSpace() {
-        var _ref = localStr.match(/^\s+/) || [''],
-            _ref2 = slicedToArray(_ref, 1),
-            space = _ref2[0];
-
-        index += space.length;
-        localStr = localStr.slice(space.length);
-    }
     function getPrev(index) {
         return token[token.length - index] || {};
     }
     function next() {
-        removePreSpace();
+        // removePreSpace()
         if (localStr.length == 0) return;
         // />
         if (M.SELF_CLOSE.test(localStr)) {
@@ -1399,8 +1391,8 @@ function getToken() {
                 value = _ref4[1];
 
             token.push(new TokenElement('SELF_CLOSE', index, value, matchStr));
-            index += value.length;
-            localStr = localStr.slice(value.length);
+            index += matchStr.length;
+            localStr = localStr.slice(matchStr.length);
             return next();
         }
         // </
@@ -1411,8 +1403,8 @@ function getToken() {
                 _value = _ref6[1];
 
             token.push(new TokenElement('CLOSE_START', index, _value));
-            index += _value.length;
-            localStr = localStr.slice(_value.length);
+            index += _matchStr.length;
+            localStr = localStr.slice(_matchStr.length);
             return next();
         }
         // <
@@ -1423,8 +1415,8 @@ function getToken() {
                 _value2 = _ref8[1];
 
             token.push(new TokenElement('OPEN_START', index, _value2, _matchStr2));
-            index += _value2.length;
-            localStr = localStr.slice(_value2.length);
+            index += _matchStr2.length;
+            localStr = localStr.slice(_matchStr2.length);
             return next();
         }
         // >
@@ -1435,8 +1427,8 @@ function getToken() {
                 _value3 = _ref10[1];
 
             token.push(new TokenElement('TAG_CLOSE', index, _value3, _matchStr3));
-            index += _value3.length;
-            localStr = localStr.slice(_value3.length);
+            index += _matchStr3.length;
+            localStr = localStr.slice(_matchStr3.length);
             return next();
         }
         // =
@@ -1447,8 +1439,8 @@ function getToken() {
                 _value4 = _ref12[1];
 
             token.push(new TokenElement('EQ', index, _value4, _matchStr4));
-            index += _value4.length;
-            localStr = localStr.slice(_value4.length);
+            index += _matchStr4.length;
+            localStr = localStr.slice(_matchStr4.length);
             return next();
         }
         // Aaa-bb 向前读一位需要是 OPEN_START | CLOSE_START
@@ -1459,8 +1451,8 @@ function getToken() {
                 _value5 = _ref14[1];
 
             token.push(new TokenElement('TAG_NAME', index, _value5, _matchStr5));
-            index += _value5.length;
-            localStr = localStr.slice(_value5.length);
+            index += _matchStr5.length;
+            localStr = localStr.slice(_matchStr5.length);
             return next();
         }
         // :@Aaa-bb
@@ -1471,8 +1463,8 @@ function getToken() {
                 _value6 = _ref16[1];
 
             token.push(new TokenElement('PROPERTY_NAME', index, _value6, _matchStr6));
-            index += _value6.length;
-            localStr = localStr.slice(_value6.length);
+            index += _matchStr6.length;
+            localStr = localStr.slice(_matchStr6.length);
             return next();
         }
         // 属性value ""
@@ -1507,11 +1499,15 @@ function getToken() {
         if (M.STRING.test(localStr)) {
             var _ref19 = localStr.match(M.STRING) || [''],
                 _ref20 = slicedToArray(_ref19, 1),
-                _value9 = _ref20[0];
+                _matchStr9 = _ref20[0];
+            // 忽略以\n开头的无意义换行
 
-            token.push(new TokenElement('STRING', index, _value9));
-            index += _value9.length;
-            localStr = localStr.slice(_value9.length);
+
+            if (!/^\n\s*/.test(_matchStr9)) {
+                token.push(new TokenElement('STRING', index, _matchStr9));
+            }
+            index += _matchStr9.length;
+            localStr = localStr.slice(_matchStr9.length);
             return next();
         }
     }
@@ -1610,7 +1606,6 @@ function toAST() {
                 handleASTError(getT(localIndex), template, 'parse error!!!!! property is not legal or there doesnt have a close tag');
                 throw new Error('parse error!!!!!');
             }
-            // 11111 dddd
         }
         // close tag
         if (currentT.type == 'CLOSE_START' && getT(index + 1).type == 'TAG_NAME' && getT(index + 2).type == 'TAG_CLOSE') {
@@ -1636,7 +1631,7 @@ function toAST() {
             _node.parent = currentNode;
             currentNode.children.push(_node);
         } else if (last && last.type === 'text') {
-            last.value += currentT.value;
+            last.value += currentT.origin || currentT.value || '';
         } else {
             var _node2 = new ASTNode();
             _node2.type = 'text';
@@ -2591,6 +2586,7 @@ function cssModule(styles) {
         target.prototype[HANDLE_CLASS_FN_NME] = function () {
             var classNames = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
 
+            classNames = '' + classNames;
             return classNames.trim().split(/\s+/g).map(function (key) {
                 // 如果不存在key的映射，就返回key， 这样子即使用了module class也兼容了global class
                 return styles[key] || key;

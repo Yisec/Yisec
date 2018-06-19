@@ -15,31 +15,31 @@ const selfCloseElements = ['img', 'br', 'hr', 'input']
 // 我们应该在解析关键字的同时，保留原始字符串
 const M = {
     get SELF_CLOSE() {
-        return /^(\/\s*>)\s*/
+        return /^\s*(\/\s*>)/
     },
     get CLOSE_START() {
-        return /^(<\s*\/)\s*/
+        return /^(<\s*\/)/
     },
     get TAG_CLOSE() {
-        return /^(>)\s*/
+        return /^\s*(>)/
     },
     get OPEN_START() {
-        return /^(<)\s*/
+        return /^(<)/
     },
     get EQ() {
-        return /^(=)\s*/
+        return /^\s*(=)/
     },
     get TAG_NAME() {
-        return /^([a-zA-Z]-?([a-zA-Z0-9]-?)*)\s*/ // Ass-dd-09
+        return /^\s*([a-zA-Z]-?([a-zA-Z0-9]-?)*)/ // Ass-dd-09
     },
     get PROPERTY_NAME() {
-        return /^([a-zA-Z@:]-?([a-zA-Z0-9:]-?)*)\s*/ // @:-aaaa
+        return /^\s*([a-zA-Z@:]-?([a-zA-Z0-9:]-?)*)/ // @:-aaaa
     },
     get PROPERTY_VALUE() {
-        return /^"([^"]*)"\s*/ // 支持 "xxx" {xc}
+        return /^\s*"([^"]*)"/ // 支持 "xxx" {xc}
     },
     get EXPR() {
-        return /^{{2}(((?!}{2}).)*)\}{2}\s*/
+        return /^{{2}(((?!}{2}).)*)\}{2}/
     },
     get STRING() {
         return /^[\s\S][^<{]*/
@@ -67,7 +67,7 @@ export function getToken(str: string = '') :TokenElement[] {
         return token[token.length - index] || {}
     }
     function next() {
-        removePreSpace()
+        // removePreSpace()
 
         if (localStr.length == 0) return
 
@@ -77,8 +77,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('SELF_CLOSE', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -88,8 +88,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('CLOSE_START', index, value)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -99,8 +99,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('OPEN_START', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -110,8 +110,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('TAG_CLOSE', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -121,8 +121,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('EQ', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -135,8 +135,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('TAG_NAME', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -146,8 +146,8 @@ export function getToken(str: string = '') :TokenElement[] {
             token.push(
                 new TokenElement('PROPERTY_NAME', index, value, matchStr)
             )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
 
@@ -182,12 +182,15 @@ export function getToken(str: string = '') :TokenElement[] {
 
         // 文本节点
         if (M.STRING.test(localStr)) {
-            const [value] = localStr.match(M.STRING) || ['']
-            token.push(
-                new TokenElement('STRING', index, value)
-            )
-            index += value.length
-            localStr = localStr.slice(value.length)
+            const [matchStr] = localStr.match(M.STRING) || ['']
+            // 忽略以\n开头的无意义换行
+            if (!/^\n\s*/.test(matchStr)) {
+                token.push(
+                    new TokenElement('STRING', index, matchStr)
+                )
+            }
+            index += matchStr.length
+            localStr = localStr.slice(matchStr.length)
             return next()
         }
     }
@@ -303,7 +306,6 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
                 )
                 throw new Error('parse error!!!!!')
             }
-            // 11111 dddd
         }
 
         // close tag
@@ -341,9 +343,9 @@ export function toAST(token: TokenElement[] = [], template: string = ''): ASTNod
             node.parent = currentNode
             currentNode.children.push(node)
         }
-        // 如果前面是文本节点，就追加上去
+        // 如果前面是文本节点，就追加上去，使用原始字符串
         else if (last && last.type === 'text') {
-            last.value += currentT.value
+            last.value += currentT.origin || currentT.value || ''
         } else {
             const node = new ASTNode()
             node.type = 'text'
