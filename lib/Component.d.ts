@@ -9,6 +9,7 @@ export interface Refs {
 }
 export default class Component implements LifeCycle {
     static defaultProps: object;
+    static getContext: Function;
     template: string;
     state: any;
     props: any;
@@ -18,6 +19,8 @@ export default class Component implements LifeCycle {
     refs: Refs;
     vdom: VirtualDOM;
     computed: object;
+    context: any;
+    constructor(context: any, parent: Component, fn: any);
     render(): string;
     $emit: (key: any, ...data: any[]) => void;
     $emitChildren: (key: any, ...data: any[]) => void;

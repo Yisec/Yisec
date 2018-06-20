@@ -35,16 +35,22 @@ function getPipes(exprs, ctxs) {
  * @param ctxs
  */
 function getValue(key, ctxs) {
-    for (let i=0; i< ctxs.length; i++) {
-        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
-            return ctxs[i][key]
-        }
-    }
     if (key === 'true') {
         return true
     }
     if (key === 'false') {
         return false
+    }
+    if (key === 'null') {
+        return null
+    }
+    if (key === 'undefined') {
+        return undefined
+    }
+    for (let i=0; i< ctxs.length; i++) {
+        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
+            return ctxs[i][key]
+        }
     }
     return window[key]
 }
@@ -70,6 +76,17 @@ export function execExprIm(expr: string = '', ctxs: any[]) {
     return input
 }
 
+function isEqual(newValue, oldValue) {
+    if (newValue !== oldValue) {
+        return false
+    }
+    // 数组一直变化
+    if (isArray(newValue)) {
+        return false
+    }
+    return true
+}
+
 /**
  * 执行表达式
  * @param {string} expr
@@ -82,16 +99,6 @@ export function execExpr(expr: string, ctxs: any[], fn: (newValue: any, oldValue
     let oldLen: number
     let newValueCache: any
     let execTime = 0
-    function isEqual(newValue, oldValue) {
-        if (newValue !== oldValue) {
-            return false
-        }
-        // 数组一直变化
-        if (isArray(newValue)) {
-            return false
-        }
-        return true
-    }
     return fn && autorun(() => {
         return execExprIm(expr, ctxs)
     }, {

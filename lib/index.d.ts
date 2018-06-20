@@ -5,7 +5,6 @@ import register, { registerComponents } from "./register";
 import { addEventAlias } from "./event/alias";
 import { addPipe } from "./execExpr";
 import forceUpdate from "./forceUpdate";
-import { VirtualDOM } from "./d";
 import { YisecElement } from "./util";
 import router from './plugins/router';
 import cssModule from './plugins/cssModule';
@@ -16,7 +15,7 @@ declare const _default: {
     observerDeep: (obj: any) => any;
     autorun: (fn: () => void, options?: AutorunOption) => () => void;
     Component: typeof Component;
-    render: (Com: any, props: any, dom: YisecElement, vdom?: VirtualDOM | undefined) => Component;
+    render: (Com: string | Function | Component, props: any, dom: YisecElement, option?: {}) => Component;
     register: (name: string, Com: typeof Component) => void;
     registerComponents: {};
     addEventAlias: (eventName: string, fn: any) => void;

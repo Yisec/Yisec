@@ -835,16 +835,22 @@ function getPipes(exprs, ctxs) {
  * @param ctxs
  */
 function getValue(key, ctxs) {
-    for (var i = 0; i < ctxs.length; i++) {
-        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
-            return ctxs[i][key];
-        }
-    }
     if (key === 'true') {
         return true;
     }
     if (key === 'false') {
         return false;
+    }
+    if (key === 'null') {
+        return null;
+    }
+    if (key === 'undefined') {
+        return undefined;
+    }
+    for (var i = 0; i < ctxs.length; i++) {
+        if (ctxs[i].hasOwnProperty(key) || ctxs[i][key] !== undefined) {
+            return ctxs[i][key];
+        }
     }
     return window[key];
 }
@@ -876,6 +882,16 @@ function execExprIm() {
     }
     return input;
 }
+function isEqual(newValue, oldValue) {
+    if (newValue !== oldValue) {
+        return false;
+    }
+    // 数组一直变化
+    if (isArray(newValue)) {
+        return false;
+    }
+    return true;
+}
 /**
  * 执行表达式
  * @param {string} expr
@@ -887,16 +903,6 @@ function execExpr(expr, ctxs, fn) {
     var oldValue = void 0;
     var newValueCache = void 0;
     var execTime = 0;
-    function isEqual(newValue, oldValue) {
-        if (newValue !== oldValue) {
-            return false;
-        }
-        // 数组一直变化
-        if (isArray(newValue)) {
-            return false;
-        }
-        return true;
-    }
     return fn && autorun(function () {
         return execExprIm(expr, ctxs);
     }, {
@@ -1159,7 +1165,7 @@ function unmountChildren(vdom) {
 }
 
 var Component = function () {
-    function Component() {
+    function Component(context, parent, fn) {
         var _this = this;
 
         classCallCheck(this, Component);
@@ -1179,6 +1185,8 @@ var Component = function () {
         this.vdom = new VirtualDOM();
         // 方便template直接获取经过复杂计算的数据
         this.computed = {};
+        // 获取上下文，context不可以不更改，context用来给所有的子组件提供上下文环境
+        this.context = null;
         // 向父组件派发事件
         this.$emit = function (key) {
             for (var _len = arguments.length, data = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
@@ -1188,9 +1196,9 @@ var Component = function () {
             var parent = _this.parent;
             var stopBubble = false;
             while (!stopBubble && parent) {
-                var fn = parent[key];
-                if (isFunction(fn)) {
-                    stopBubble = fn.call.apply(fn, [parent].concat(data)) === false;
+                var _fn = parent[key];
+                if (isFunction(_fn)) {
+                    stopBubble = _fn.call.apply(_fn, [parent].concat(data)) === false;
                 }
                 parent = parent.parent;
             }
@@ -1218,11 +1226,17 @@ var Component = function () {
 
             _this.parent && _this.parent.children.forEach(function (item) {
                 if (item !== _this) {
-                    var fn = item[key];
-                    isFunction(fn) && fn.call.apply(fn, [item].concat(data));
+                    var _fn2 = item[key];
+                    isFunction(_fn2) && _fn2.call.apply(_fn2, [item].concat(data));
                 }
             });
         };
+        this.parent = parent;
+        this.context = context;
+        // 传递context
+        if (!this.context && isFunction(fn) && isFunction(fn.getContext)) {
+            this.context = fn.getContext();
+        }
     }
 
     createClass(Component, [{
@@ -1316,9 +1330,6 @@ function getMatched() {
 // 使用模板编译的好处有哪些？，模板本身可以作为资源加载，也就是View层
 // 自身的逻辑层可以作为控制器
 // 再加一个Model作为数据来源
-/**
- * 半闭合标签 可以以 > 或 /> 结尾
- */
 var selfCloseElements = ['img', 'br', 'hr', 'input'];
 // 我们应该在解析关键字的同时，保留原始字符串
 var M = {
@@ -1657,6 +1668,7 @@ function handleSVG(node) {
     });
     return node;
 }
+// 处理if else
 var cache$1 = {};
 // 字符串 => ast
 var toAST$1 = function () {
@@ -2043,9 +2055,9 @@ function handleFor(value, element, ctxs, vdom, node) {
 }
 
 function handleIf(parent, node, ctxs, parentVdom) {
+    var collect = [];
     var commentHook = document.createComment('ys:if 占位');
     parent.appendChild(commentHook);
-    var collect = [];
     parentVdom.exprs.push(execExpr(node.props['ys:if'], ctxs, function (newValue, oldValue) {
         if (newValue) {
             addElement(function (ele, vdom) {
@@ -2245,10 +2257,13 @@ function addElement(appendFn, ast, ctxs, parentVdom) {
                     return;
                 }
                 // 通过创建一个Comment占位节点，可实无root渲染
+                var parentCtx = getParentCtx(ctxs);
                 var com = render(Com, getProps(vdom, ctxs), {
                     appendChild: appendFn
-                }, vdom);
-                com.parent = getParentCtx(ctxs);
+                }, {
+                    parent: parentCtx,
+                    context: parentCtx.context
+                });
                 com.parent.children.push(com);
                 vdom.component = com;
                 // 添加ref
@@ -2338,13 +2353,15 @@ function transform(ast, element, ctxs) {
     };
 }
 
-function render(Com, props, dom, vdom) {
+function render(Com, props, dom) {
+    var option = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {};
+
     // 卸载原有dom上挂载的component
     if (dom instanceof HTMLElement && dom[COMPONENT_DOM_HOOK] && dom[COMPONENT_DOM_HOOK].vdom && !dom[COMPONENT_DOM_HOOK].vdom.unmounted) {
         dom[COMPONENT_DOM_HOOK].__willUnmount();
     }
     // string/function -> Component
-    if (isFunction(Com)) {
+    if (typeof Com === 'function') {
         // 如果函数没有继承Component，就把它当做render方法
         if (!(Com.prototype instanceof Component)) {
             var renderFn = Com;
@@ -2365,7 +2382,7 @@ function render(Com, props, dom, vdom) {
                 return Com;
             }(Component);
         }
-    } else if (isString(Com)) {
+    } else if (typeof Com === 'string') {
         var template = Com;
         Com = function (_Component2) {
             inherits(Com, _Component2);
@@ -2384,7 +2401,8 @@ function render(Com, props, dom, vdom) {
     } else {
         console.error('render first param should be a function');
     }
-    var ctx = new Com();
+    console.log({ option: option });
+    var ctx = new Com(option.context, option.parent, Com);
     // 把组件实例挂载在dom上
     dom instanceof HTMLElement && (dom[COMPONENT_DOM_HOOK] = ctx);
     // state 与 props 属性不可被更改

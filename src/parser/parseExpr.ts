@@ -12,7 +12,8 @@ export default function parseExpr(body) {
             body.replace(/'[^']*'|"[^"]*"/g, ' ') // 移除字符串 'ddd' "ddd"
             .replace(/([A-Za-z_$][A-Za-z0-9_$]*\s*)?:/g, '') // 移除对象key { aa: }
             .match(/\.?[A-Za-z_$][A-Za-z0-9_$]*\s*/g) || [] // 获取所有变量 .?aa
-        ).filter(i => !/^\.|new\s+/.test(i) ) // 去除.aa new
+        )
+        .filter(i => !/^\.|new\s+/.test(i)) // 去除.aa new
         .map(i => i.trim()) // 去除空格
 
     params = uniqueArr<string>(params)

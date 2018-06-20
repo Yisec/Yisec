@@ -1,4 +1,4 @@
-import { getType, isFunction } from "./util";
+import { isFunction } from "./util";
 import { VirtualDOM } from "./d";
 import { unmountNode } from "./unmount";
 
@@ -15,6 +15,7 @@ export interface Refs {
 
 export default class Component implements LifeCycle {
     static defaultProps: object = {}
+    static getContext: Function
     // 模板
     template = ''
     // 状态
@@ -32,6 +33,18 @@ export default class Component implements LifeCycle {
     vdom = new VirtualDOM()
     // 方便template直接获取经过复杂计算的数据
     computed: object = {}
+    // 获取上下文，context不可以不更改，context用来给所有的子组件提供上下文环境
+    context: any = null
+
+    constructor(context, parent: Component, fn) {
+        this.parent = parent
+        this.context = context
+        // 传递context
+        if (!this.context && isFunction(fn) && isFunction(fn.getContext)) {
+            this.context = fn.getContext()
+        }
+    }
+
     render() : string {
         return this.template
     }

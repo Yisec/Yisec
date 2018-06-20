@@ -11,9 +11,9 @@ import { addElement } from "../transform";
  * @param {array} ctxs
  */
 export default function handleIf(parent, node, ctxs: any[], parentVdom: VirtualDOM) {
+    let collect:VirtualDOM[] = []
     let commentHook = document.createComment('ys:if 占位')
     parent.appendChild(commentHook)
-    let collect:VirtualDOM[] = []
     parentVdom.exprs.push(
         execExpr(node.props['ys:if'], ctxs, (newValue, oldValue) => {
             if (newValue) {

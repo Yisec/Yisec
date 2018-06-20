@@ -253,10 +253,13 @@ export function addElement(appendFn, ast: ASTNode, ctxs: any[], parentVdom: Virt
                     return
                 }
                 // 通过创建一个Comment占位节点，可实无root渲染
+                const parentCtx = getParentCtx(ctxs)
                 const com = render(Com, getProps(vdom, ctxs), {
                     appendChild: appendFn,
-                }, vdom)
-                com.parent = getParentCtx(ctxs)
+                }, {
+                    parent: parentCtx,
+                    context: parentCtx.context,
+                })
                 com.parent.children.push(com)
                 vdom.component = com
                 // 添加ref

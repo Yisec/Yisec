@@ -12,7 +12,7 @@ import { COMPONENT_DOM_HOOK } from './config';
  * @param {HTMLElement} dom
  * @returns {Component}
  */
-export default function render(Com: any, props: any, dom: YisecElement, vdom?:VirtualDOM) :Component {
+export default function render(Com: Component|Function|string, props: any, dom: YisecElement, option = {}) :Component {
     // 卸载原有dom上挂载的component
     if (
         dom instanceof HTMLElement
@@ -24,7 +24,7 @@ export default function render(Com: any, props: any, dom: YisecElement, vdom?:Vi
     }
 
     // string/function -> Component
-    if (isFunction(Com)) {
+    if (typeof Com === 'function' ) {
         // 如果函数没有继承Component，就把它当做render方法
         if (!(Com.prototype instanceof Component)) {
             const renderFn = Com
@@ -34,7 +34,7 @@ export default function render(Com: any, props: any, dom: YisecElement, vdom?:Vi
                 }
             }
         }
-    } else if (isString(Com)) {
+    } else if (typeof Com === 'string') {
         const template = Com
         Com = class extends Component {
             template = template
@@ -42,8 +42,8 @@ export default function render(Com: any, props: any, dom: YisecElement, vdom?:Vi
     } else {
         console.error(`render first param should be a function`)
     }
-
-    const ctx = <Component>new Com()
+    console.log({option})
+    const ctx = <Component>new Com(option.context, option.parent, Com)
     // 把组件实例挂载在dom上
     dom instanceof HTMLElement && (dom[COMPONENT_DOM_HOOK] = ctx)
 
