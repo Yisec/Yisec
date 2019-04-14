@@ -1,30 +1,23 @@
 import { EventAlias, VirtualDOM, ASTNode, Props } from "./d";
 import {
-    toClassNames,
     getType,
     YisecElement,
     isPromise,
-    isObject,
     getComponent,
     getParentCtx,
-    isFunction,
-    isString,
     resortArr,
     isComponent,
 } from './util'
 
-import { registerComponents } from "./register";
-import { autorun, observer, addObserve } from './autorun'
+import { observer, addObserve } from './autorun'
 import { execExpr } from "./execExpr";
 import render from './render'
 
 import eventAlias from "./event/alias";
-import Component from "./Component";
-import { unmountChildren, unmountNode } from "./unmount"
+import { unmountNode } from "./unmount"
 import handleClass from "./property/handleClass";
 import handleStyle from "./property/handleStyle";
 
-import { handleEnter } from "./domLifeCycle";
 import handleFor from "./directive/for";
 import handleIf from "./directive/if";
 
@@ -352,4 +345,3 @@ function transform(ast: ASTNode, element: YisecElement, ctxs: any[], parentVdom:
 }
 
 export default transform
-
